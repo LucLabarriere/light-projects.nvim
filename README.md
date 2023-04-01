@@ -6,10 +6,10 @@ project folders.
 
 ## Features
 
-- Creates a config `json` file containing a list of projects with specific key
+- Creates a `json` config file containing a list of projects with specific key
   bindings
-- The key bindings get loaded on `VimEnter` autocommand as well as whenever the
-  root directory is changed
+- The key bindings get loaded on `VimEnter` autocmd as well as whenever the
+  root directory is changed (DirChanged autocmd)
 - Three default keybindings can be created : `run`, `build` and `configure` and
   others can be set
 
