@@ -42,7 +42,7 @@ The default setup arguments are:
 
 ```lua
 require('light-projects').setup{
-    config_path = vim.expand(vim.fn.stdpath('config')),
+    config_path = vim.fn.expand(vim.fn.stdpath('config')) .. '/light_projects.json',
     run_mapping = nil, -- Example: '<Leader>rr'
     build_mapping = nil, -- Example: '<Leader>bb'
     configure_mapping = nil, -- Example: '<Leader>cc'
