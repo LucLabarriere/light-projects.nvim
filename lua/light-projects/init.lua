@@ -115,6 +115,21 @@ M.reload = function()
         return
     end
 
+    local operations = {
+        build_and_run = { 'build', 'run' },
+        build_and_test = { 'build', 'test' },
+        build_and_bench = { 'build', 'bench' },
+        build_and_debug = { 'build', 'debug' },
+    }
+
+    for op, actions in pairs(operations) do
+        if M.project[op] == nil and M.project[actions[1]] ~= nil and M.project[actions[2]] ~= nil then
+            M.project[op] = {
+                cmd = M.project[actions[1]].cmd .. "; " .. M.project[actions[2]].cmd
+            }
+        end
+    end
+
     for _, action in pairs(M.possible_default_actions) do
         if M.project[action] ~= nil then
             local a = M.project[action]
@@ -133,7 +148,6 @@ M.reload = function()
 end
 
 M.open_config = function()
-    print("Config")
     if M.config_path == nil then
         print("No config path set")
         return

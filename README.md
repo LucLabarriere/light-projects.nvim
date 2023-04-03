@@ -65,6 +65,9 @@ lp.setup {
         bench = '<leader>be',
         debug = '<leader>deb',
         clean = '<leader>cle',
+
+        -- If you don't set these commands manually, they get defaulted to their
+        -- combinations. For example for build_and_run: build; run
         build_and_run = '<leader>br',
         build_and_test = '<leader>bt',
         build_and_bench = '<leader>bbe',
