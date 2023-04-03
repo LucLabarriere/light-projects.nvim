@@ -14,6 +14,22 @@ M.get_path = function(file_path)
     return file_path
 end
 
+M.tif = function(cond, a, b)
+    if cond then
+        return a
+    else
+        return b
+    end
+end
+
+M.exe = function(exe_base_name)
+    if M.on_windows then
+        exe_base_name = exe_base_name .. '.exe'
+    end
+
+    return exe_base_name
+end
+
 M.setup_default_key_mappings = function(default_mappings)
     if default_mappings == nil then
         return
@@ -81,8 +97,7 @@ M.reload = function()
     end
 
     -- Storing paths
-    for proj_name, p in pairs(M.setup_args.projects) do
-        -- Path to project
+    for proj_name, p in pairs(M.setup_args.projects) do -- Path to project
         if p.path == nil then
             print("LightProjects: Project " .. proj_name .. " has no path")
             return
@@ -142,7 +157,9 @@ M.set_keymap = function(mode, lhs, rhs, opts, light_projects_opts)
             rhs = "cd " .. M.current_project_path .. "; " .. rhs
         end
 
-        rhs = rhs:gsub('"', '\\"')
+        if M.on_windows then
+            rhs = rhs:gsub('"', '\\"')
+        end
 
         rhs = ":TermExec cmd='" .. rhs .. "'<CR>"
     end
