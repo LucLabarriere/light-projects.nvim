@@ -1,184 +1,163 @@
 local M = {}
 
-M.on_windows = vim.fn.has('win32')
-
 M.get_path = function(file_path)
-	file_path = vim.fn.expand(file_path)
+    file_path = vim.fn.expand(file_path)
 
-	if (M.on_windows) then
-		file_path = file_path:gsub('\\', '/')
-	end
-	return file_path
+    if (M.on_windows) then
+        file_path = file_path:gsub('\\', '/')
+    end
+
+    if file_path:sub(-1) ~= '/' then
+        file_path = file_path .. '/'
+    end
+
+    return file_path
 end
 
-M.get_cfg_folder = function()
-	return M.get_path(vim.fn.stdpath('config'))
+M.setup_default_key_mappings = function(default_mappings)
+    if default_mappings == nil then
+        return
+    end
+
+    for _, action in pairs(M.possible_default_actions) do
+        if (default_mappings[action] ~= nil) then
+            M.default_mappings[action] = default_mappings[action]
+        end
+    end
 end
 
-M.write_file = function(file_path, content)
-	local file = io.open(file_path, 'w')
-	if (file ~= nil) then
-		file:write(content)
-		file:close()
-	else
-		print(file_path, "does not exist or is not writable")
-	end
-end
+M.setup_autocommands = function()
+    vim.api.nvim_create_augroup("LightProjects", { clear = true })
+    vim.api.nvim_create_autocmd(
+        { "DirChanged", "VimEnter" }, {
+            command = ":LightProjectsReload",
+            group = "LightProjects",
+        }
+    )
 
-M.file_exists = function(file_path)
-	local file = io.open(file_path, 'r')
-	if (file ~= nil) then
-		file:close()
-		return true
-	else
-		return false
-	end
-end
-
-M.read_file = function(file_path)
-	local file = io.open(file_path, 'r')
-	if (file ~= nil) then
-		local content = file:read('*all')
-		file:close()
-		return content
-	else
-		print(file_path, "does not exist or is not readable")
-	end
-end
-
-M.parse_command = function(content)
-	local kmap = content['key_map']
-	local cmd = content['cmd']
-	local cmdtype = content['type']
-
-	cmd = table.concat(cmd, ' ')
-
-	if cmdtype == 'ToggleTerm' then
-		cmd = ":TermExec cmd='" .. cmd .. "'"
-	end
-
-	cmd = cmd .. '<CR>'
-
-	return {
-		cmd = cmd,
-		kmap = kmap,
-	}
+    vim.api.nvim_create_user_command("LightProjectsReload", ":lua require('light-projects').reload()", {})
+    vim.api.nvim_create_user_command("LightProjectsConfig", ":lua require('light-projects').open_config()", {})
 end
 
 M.setup = function(setup_args)
-	-- Config path
-	if (setup_args == nil) then
-		setup_args = {}
-	end
+    if setup_args.verbose == nil then setup_args.verbose = 0 end
+    if setup_args == nil then setup_args = {} end
+    if setup_args.default_mappings == nil then setup_args.default_mappings = {} end
+    if setup_args.projects == nil then setup_args.projects = {} end
 
-	if (setup_args['config_path'] ~= nil) then
-		M.config_path = setup_args['config_path']
+    M.setup_args = setup_args
 
-		if (M.on_windows) then
-			M.config_path = M.config_path:gsub('\\', '/')
-		end
-
-	else
-		M.config_path = M.get_path(M.get_cfg_folder() .. "/light_projects.json")
-	end
-
-	M.default_config = [[
-{
-    "nvim_conf": {
-        "path": "]] .. M.get_path(M.get_cfg_folder()) .. [[",
-        "key_maps": [
-            {
-                "mode": "n",
-                "lfs": "<Leader>hello",
-                "rhs": ":echo 'hello'<CR>"
-            }
-        ]
+    M.possible_default_actions = {
+        'configure',
+        'build',
+        'run',
+        'test',
+        'bench',
+        'clean',
+        'debug',
+        'build_and_run',
+        'build_and_test',
+        'build_and_bench',
+        'build_and_debug',
     }
-}
-]]
+    M.on_windows = vim.fn.has('win32')
 
-	M.run_mapping = setup_args.run_mapping
-	M.build_mapping = setup_args.build_mapping
-	M.configure_mapping = setup_args.configure_mapping
-
-	if M.file_exists(M.config_path) == false then
-		print("LightProjects: writing config file at " .. M.config_path)
-		M.write_file(M.config_path, M.default_config)
-	end
-
-	M.key_maps_register = {} -- stores key maps for projects
-	M.paths_register = {} -- stores paths to projects
-
-	-- Default keymaps
-	vim.api.nvim_create_augroup("LightProjects", { clear = true })
-	vim.api.nvim_create_autocmd(
-		{ "DirChanged", "VimEnter" }, {
-			command = ":LightProjectsReload",
-			group = "LightProjects",
-		}
-	)
-
-	vim.api.nvim_create_user_command("LightProjectsReload", ":lua require('light-projects').reload()", {})
-	vim.api.nvim_create_user_command("LightProjectsConfig", ":lua require('light-projects').open_config()", {})
-
-	M.reload()
+    M.setup_autocommands()
+    M.reload()
 end
 
 M.reload = function()
-	M.projects = vim.json.decode(M.read_file(M.config_path))
+    M.default_mappings = {}
+    M.project_paths = {}
+    M.use_toggleterm = M.setup_args.use_toggleterm
+    M.setup_default_key_mappings(M.setup_args.default_mappings)
+    M.current_project_path = M.get_path(vim.fn.getcwd())
+    M.config_path = M.setup_args.config_path
 
-	for proj_name, p in pairs(M.projects) do
-		M.paths_register[p['path']] = proj_name
-		M.key_maps_register[proj_name] = {}
+    local opts = { noremap = true, silent = true }
 
-		local key_maps = p['key_maps']
+    if M.setup_args.verbose > 1 then
+        print("LightProjects: current path: " .. M.current_project_path)
+    end
 
-		if p['configure'] ~= nil then
-			local res = M.parse_command(p['configure'])
-			if M.configure_mapping ~= nil then
-				table.insert(M.key_maps_register[proj_name], { "n", M.configure_mapping, res.cmd })
-			end
-		end
+    -- Storing paths
+    for proj_name, p in pairs(M.setup_args.projects) do
+        -- Path to project
+        if p.path == nil then
+            print("LightProjects: Project " .. proj_name .. " has no path")
+            return
+        end
 
-		if p['build'] ~= nil then
-			local res = M.parse_command(p['build'])
-			if M.build_mapping ~= nil then
-				table.insert(M.key_maps_register[proj_name], { "n", M.build_mapping, res.cmd })
-			end
-		end
+        M.project_paths[M.get_path(p.path)] = proj_name
+    end
 
-		if p['run'] ~= nil then
-			local res = M.parse_command(p['run'])
-			if M.run_mapping ~= nil then
-				table.insert(M.key_maps_register[proj_name], { "n", M.run_mapping, res.cmd })
-			end
-		end
+    -- Default mappings
+    M.project = M.setup_args.projects[M.project_paths[M.current_project_path]]
 
-		-- Additional keymaps
-		if (key_maps ~= nil) then
-			for _, m in pairs(key_maps) do
-				table.insert(M.key_maps_register[proj_name], { m.mode, m.lfs, m.rhs })
-			end
-		end
-	end
+    if M.project ~= nil and M.setup_args.verbose > 0 then
+        print("LightProjects: [" .. M.project_paths[M.current_project_path] .. "]")
+    else
+        return
+    end
 
-	M.setup_keymaps()
-end
+    for _, action in pairs(M.possible_default_actions) do
+        if M.project[action] ~= nil then
+            local a = M.project[action]
+            M.set_keymap(
+                'n', M.default_mappings[action], a.cmd, opts, {
+                    toggleterm = a.toggleterm,
+                    cd_before_cmd = a.cd_before_cmd,
+                }
+            )
+        end
+    end
 
-M.setup_keymaps = function()
-	local opts = { noremap = true, silent = true }
-	local curr_path = M.get_path(vim.fn.getcwd())
-	local proj_name = M.paths_register[curr_path]
-
-	if proj_name ~= nil then
-		for _, m in pairs(M.key_maps_register[proj_name]) do
-			vim.api.nvim_set_keymap(m[1], m[2], m[3], opts)
-		end
-	end
+    if M.project.callback ~= nil then
+        M.project.callback()
+    end
 end
 
 M.open_config = function()
-	vim.api.nvim_win_set_buf(0, vim.fn.bufadd(M.config_path))
+    print("Config")
+    if M.config_path == nil then
+        print("No config path set")
+        return
+    end
+
+    vim.api.nvim_win_set_buf(0, vim.fn.bufadd(M.config_path))
+end
+
+M.set_keymap = function(mode, lhs, rhs, opts, light_projects_opts)
+    -- By default, cd before executing toggleterm command
+    if light_projects_opts.cd_before_cmd == nil then
+        light_projects_opts.cd_before_cmd = true
+    end
+
+    if light_projects_opts.toggleterm == nil then
+        light_projects_opts.toggleterm = M.use_toggleterm
+    end
+
+    if light_projects_opts.toggleterm == true then
+        if light_projects_opts.cd_before_cmd == true then
+            rhs = "cd " .. M.current_project_path .. "; " .. rhs
+        end
+
+        rhs = rhs:gsub('"', '\\"')
+
+        rhs = ":TermExec cmd='" .. rhs .. "'<CR>"
+    end
+
+    if M.project.variables ~= nil then
+        for k, v in pairs(M.project.variables) do
+            rhs = rhs:gsub("${" .. k .. "}", v)
+        end
+    end
+
+    if M.setup_args.verbose > 2 then
+        print("Registered command: " .. rhs)
+    end
+
+    vim.api.nvim_set_keymap(mode, lhs, rhs, opts)
 end
 
 return M
