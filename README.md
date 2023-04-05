@@ -16,7 +16,8 @@ project folders.
 ## Features
 
 - Default key bindings for common programming tasks (build, run, tests, etc.)
-- The key bindings get loaded on `VimEnter` and `DirChanged` autocmds
+- The key bindings get loaded on `VimEnter` and `DirChanged` autocmds (set
+  use_autoreload to false in the setup arguments to disable this behaviour)
 - Supports [ToggleTerm](https://github.com/akinsho/toggleterm.nvim) to execute a
   command in the float terminal (using `:TermExec cmd='my_cmd'<CR>`)
 - Supports an additionnal callback to be ran when the project is loaded
@@ -26,6 +27,14 @@ project folders.
   reloads the current config file. It basically just sources the config file.
 - `require('light-projects').tif(condition, val_if_true, val_if_false)`: simple
   ternary if function
+
+![Demo Animation](../assets/lp-example.gif?raw=true)
+
+In this demo, clangd (C++ LSP) does not work because the project is not built
+with the CMAKE_EXPORT_COMPILE_COMMANDS variable. Thus, I execute
+`:LightProjectsConfig` to open the config file, modify the `configure` command,
+switch back to my cpp project, execute the `configure` command in a ToggleTerm
+window, and restart my LSP with `:LspRestart`.
 
 ## Installation
 

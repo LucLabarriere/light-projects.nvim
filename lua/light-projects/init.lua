@@ -35,13 +35,15 @@ M.setup_default_key_mappings = function(default_mappings)
 end
 
 M.setup_autocommands = function()
-    vim.api.nvim_create_augroup("LightProjects", { clear = true })
-    vim.api.nvim_create_autocmd(
-        { "DirChanged", "VimEnter" }, {
-            command = ":LightProjectsReload",
-            group = "LightProjects",
-        }
-    )
+    if M.setup_args.use_autoreload then
+        vim.api.nvim_create_augroup("LightProjects", { clear = true })
+        vim.api.nvim_create_autocmd(
+            { "DirChanged", "VimEnter" }, {
+                command = ":LightProjectsReload",
+                group = "LightProjects",
+            }
+        )
+    end
 
     vim.api.nvim_create_user_command("LightProjectsReload", ":lua require('light-projects').reload()", {})
     vim.api.nvim_create_user_command("LightProjectsConfig", ":lua require('light-projects').open_config()", {})
@@ -52,6 +54,7 @@ M.setup = function(setup_args)
     if setup_args == nil then setup_args = {} end
     if setup_args.default_mappings == nil then setup_args.default_mappings = {} end
     if setup_args.projects == nil then setup_args.projects = {} end
+    if setup_args.use_autoreload == nil then setup_args.use_auto_reload = false end
 
     M.setup_args = setup_args
 
