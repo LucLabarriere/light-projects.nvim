@@ -65,6 +65,9 @@ lp.setup {
     -- By default, run the commands using :TermExec cmd='my_cmd'<CR>
     use_toggleterm = true,
 
+    -- By default, the config file is reloaded when the current directory is changed
+    use_autoreload = true,
+
     -- Use the default mappings you need
     default_mappings = {
         configure = '<leader>cc',
