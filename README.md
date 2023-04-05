@@ -22,14 +22,14 @@ project folders.
 - Supports an additionnal callback to be ran when the project is loaded
 - Command `LightProjectsConfig` (or `require('light-projects').open_config()`):
   Opens the config file
-- `require('light-projects').exe(path_to_exe)`: appends ".exe" if on windows
+- Command `LightProjectsReload` (or `require('light-projects').reload()`):
+  reloads the current config file. It basically just sources the config file.
 - `require('light-projects').tif(condition, val_if_true, val_if_false)`: simple
   ternary if function
 
 ## Installation
 
-Using your package manager, for example using
-[vim-plug](https://github.com/junegunn/vim-plug):
+For example using [vim-plug](https://github.com/junegunn/vim-plug):
 
 ```lua
 Plug 'LucLabarriere/light-projects.nvim'
@@ -62,16 +62,17 @@ lp.setup {
         build = '<leader>bb',
         run = '<leader>rr',
         test = '<leader>tt',
-        bench = '<leader>be',
-        debug = '<leader>deb',
+        bench = '<leader>ee',
+        debug = '<leader>dd',
         clean = '<leader>cle',
 
-        -- If you don't set these commands manually, they get defaulted to their
-        -- combinations. For example for build_and_run: build; run
+        -- If you don't define these commands manually in the project definition,
+        -- they get defaulted to their combinations. For example for build_and_run:
+        -- :TermExec cmd='build; run'<CR>
         build_and_run = '<leader>br',
         build_and_test = '<leader>bt',
-        build_and_bench = '<leader>bbe',
-        build_and_debug = '<leader>bdeb',
+        build_and_bench = '<leader>be',
+        build_and_debug = '<leader>bd',
     },
 
     -- Here are examples of projects that I defined (works on linux and windows)
@@ -86,25 +87,25 @@ lp.setup {
             callback = function()
                 local opts = { noremap = true, silent = true }
                 -- This uses the set_keymap function that is similar to nvim_set_keymap
-                -- exepect that it has a 5th argument to interpret the right and side as a
+                -- except that it has a 5th argument to interpret the right-hand side as a
                 -- ToggleTerm command
                 lp.set_keymap('n', '<leader>hello', 'echo "hello"', opts, {
                     toggleterm = true,
                 })
             end
         },
-        -- My commands when working on a C++ project called "interview"
-        interview =
-            path = '~/work/interview/',
+        -- My commands when working on a C++ project called "my_cpp_project"
+        my_cpp_project =
+            path = '~/work/my_cpp_project/',
             -- Those variables will be replaced in the commands below
             -- for example, ${config} is replaced by 'Debug' here
             variables = {
                 config = 'Debug',
-                cxx_compiler = lp.exe('clang++'), -- lp.exe('name') turns 'name' to 'name.exe' on windows
-                c_compiler = lp.exe('clang'),
-                app_executable = lp.exe('interview'),
-                test_executable = lp.exe('HashMap_test'),
-                bench_executable = lp.exe('HashMap_bench'),
+                cxx_compiler = 'clang++',
+                c_compiler = 'clang'),
+                app_executable = 'my_cpp_project',
+                test_executable = 'HashMap_test',
+                bench_executable = 'HashMap_bench',
 				-- You might like to using the ternary if function
 				-- example_variable = lp.tif(condition, value_if_true, value_if_false),
 
@@ -144,3 +145,8 @@ lp.setup {
 This project is available under the MIT license. Feel free to use, modify, copy,
 etc. Also if you think of something that is missing, consider opening an issue
 or creating a pull request.
+
+## Known bugs
+
+- The `configure` command defined in the example config file does not work on
+  vim mode shells.

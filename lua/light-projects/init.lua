@@ -22,14 +22,6 @@ M.tif = function(cond, a, b)
     end
 end
 
-M.exe = function(exe_base_name)
-    if M.on_windows then
-        exe_base_name = exe_base_name .. '.exe'
-    end
-
-    return exe_base_name
-end
-
 M.setup_default_key_mappings = function(default_mappings)
     if default_mappings == nil then
         return
@@ -79,10 +71,7 @@ M.setup = function(setup_args)
     M.on_windows = vim.fn.has('win32')
 
     M.setup_autocommands()
-    M.reload()
-end
 
-M.reload = function()
     M.default_mappings = {}
     M.project_paths = {}
     M.use_toggleterm = M.setup_args.use_toggleterm
@@ -145,6 +134,15 @@ M.reload = function()
     if M.project.callback ~= nil then
         M.project.callback()
     end
+end
+
+M.reload = function()
+    if M.config_path == nil then
+        print("No config path set")
+        return
+    end
+
+    vim.api.nvim_exec("source " .. M.config_path, false)
 end
 
 M.open_config = function()
