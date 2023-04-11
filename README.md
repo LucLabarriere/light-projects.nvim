@@ -1,11 +1,23 @@
 # light-projects.nvim
 
+## Disclamer
+
+This project has only been slightly tested on windows and linux. If you find
+bugs, please open an issue! It is also at the early stages of development and is
+subject to changes in the future
+
+## Description
+
 <!--toc:start-->
 
 - [light-projects.nvim](#light-projectsnvim)
   - [Features](#features)
   - [Installation](#installation)
   - [Configuration](#configuration)
+    - [Keymaps](#keymaps)
+    - [Presets](#presets)
+    - [Setup](#setup)
+  - [Command types](#command-types)
   - [Contribute](#contribute)
   <!--toc:end-->
 
@@ -15,18 +27,27 @@ project folders.
 
 ## Features
 
+<<<<<<< HEAD
 - Default key bindings for common programming tasks (build, run, tests, etc.)
 - The key bindings get loaded on `VimEnter` and `DirChanged` autocmds (set
   use_autoreload to false in the setup arguments to disable this behaviour)
+=======
+- Create keybindings for common (custom) tasks, such as `run`, `build`, `debug`,
+  etc.
+- The key bindings get loaded on `VimEnter` and `DirChanged` autocmds
+>>>>>>> rework
 - Supports [ToggleTerm](https://github.com/akinsho/toggleterm.nvim) to execute a
   command in the float terminal (using `:TermExec cmd='my_cmd'<CR>`)
 - Supports an additionnal callback to be ran when the project is loaded
-- Command `LightProjectsConfig` (or `require('light-projects').open_config()`):
-  Opens the config file
-- Command `LightProjectsReload` (or `require('light-projects').reload()`):
-  reloads the current config file. It basically just sources the config file.
-- `require('light-projects').tif(condition, val_if_true, val_if_false)`: simple
-  ternary if function
+- Command `LightProjectsConfig` (or `lp.open_config()`): Opens the config file
+- Command `LightProjectsReload` (or `lp.reload()`): reloads the config file. It
+  basically just sources the config file.
+- Command `LightProjectsSwitch` (or `lp.telescope_project_picker()`): opens a
+  [telescope](https://github.com/nvim-telescope/telescope.nvim) window to switch
+  project. If the chosen project has an `entry_point` defined, opens the
+  specified file. If not, just `cd` into the directory
+- Command `LightProjectToggle` (or `lua lp.toggle_project()`): toggles the
+  project. This is the command that is ran on `VimEnter` and `DirChanged`.
 
 ![Demo Animation](../assets/lp-example.gif?raw=true)
 
@@ -46,11 +67,111 @@ Plug 'LucLabarriere/light-projects.nvim'
 
 ## Configuration
 
-Here's an example of a setup() call:
+An example of a config file is given [in the repository](./example_config.lua).
+The configuration is explained below.
+
+### Keymaps
+
+You can define the keymaps you will be using in the keymaps dictionary as so:
 
 ```lua
 local lp = require('light-projects')
+lp.keymaps = {
+    configure = '<leader>cc',
+    build = '<leader>bb',
+    source = '<leader>so',
+    run = '<leader>rr',
+    test = '<leader>tt',
+    bench = '<leader>ce',
+    debug = '<leader>dd',
+    clean = '<leader>cle',
+    tidy = '<leader>ti',
+    build_and_run = '<leader>br',
+    build_and_test = '<leader>bt',
+    build_and_bench = '<leader>be',
+    build_and_debug = '<leader>bd',
+	-- ...
+}
+```
 
+In the example, the names chosen are arbitrary, chose whatever command name you
+like
+
+### Presets
+
+Then define a bunch of presets in the presets dictionary. For example, in the
+example below, I define a preset called "lua" that I will use all my neovim
+config files (see the [Command types](#command-types) section for more infos on
+the `type` argument.
+
+```lua
+lp.presets.lua = {
+    cmds = {
+        source = { cmd = 'source %', type = lp.cmdtypes.raw },
+    },
+}
+```
+
+For my python projects I use:
+
+```lua
+lp.presets.python = {
+    cmds = {
+        run = { cmd = 'python ${app_executable}', type = lp.cmdtypes.toggleterm },
+    }
+}
+```
+
+The `${app_executable}` variable will have to be set for each project. Note that
+in these examples, the `source` and `run` entries correspond to the ones defined
+in the `lp.keymaps` dictionary
+
+A more complicated example is given below. In there, I define the `cpp` preset
+for my C++ projects. A bunch of variables are defined in the `variables`
+dictionary (those can be overwritten in the project specific configurations).
+Notice also that some variables (`${app_executable}` for example, remain
+undefined in the preset)
+
+```lua
+lp.presets.cpp = {
+    variables = {
+        c_compiler = 'clang',
+        cxx_compiler = 'clang++',
+        config = 'Debug',
+    },
+    cmds = {
+        configure = {
+            cmd =
+                '$env:VCPKG_FEATURE_FLAGS="manifests";'
+                .. 'cmake . -B build'
+                .. ' -DCMAKE_CXX_COMPILER=${cxx_compiler}'
+                .. ' -DCMAKE_C_COMPILER=${c_compiler}'
+                .. ' -G "Ninja Multi-Config"'
+                .. ' -DCMAKE_EXPORT_COMPILE_COMMANDS=ON',
+        },
+        build = { cmd = 'cmake --build build --config ${config}' },
+        run = { cmd = 'build/${config}/${app_executable}' },
+        test = { cmd = 'cd build; ctest' },
+        bench = { cmd = 'build/benchmarks/${config}/${bench_executable}' },
+        clean = { cmd = 'rm -rf build' },
+        debug = { cmd = 'DapContinue', type = lp.cmdtypes.raw },
+        build_and_run = { cmd = { 'build', 'run' }, type = lp.cmdtypes.sequential },
+        build_and_test = { cmd = { 'build', 'test' }, type = lp.cmdtypes.sequential },
+        build_and_bench = { cmd = { 'build', 'bench' }, type = lp.cmdtypes.sequential },
+        build_and_debug = { cmd = { 'build', 'debug' }, type = lp.cmdtypes.sequential },
+    },
+}
+```
+
+Also in this example, note that the `build_and_x` commands are sequential
+commands, meaning that the `cmd` entry has to be given as a table of command
+names to execute in order.
+
+### Setup
+
+In the setup call, a bunch of additional features and configs can be used.
+
+```lua
 lp.setup {
     -- Possible values:
     --      - 0 : silent
@@ -63,8 +184,14 @@ lp.setup {
     config_path = string.sub(debug.getinfo(1, "S").source, 2),
 
     -- By default, run the commands using :TermExec cmd='my_cmd'<CR>
-    use_toggleterm = true,
+    -- Available cmdtypes:
+    -- lp.cmdtypes.raw
+    -- lp.cmdtypes.toggleterm
+    -- lp.cmdtypes.sequential
+    -- lp.cmdtypes.lua_function
+    default_cmdtype = lp.cmdtypes.toggleterm,
 
+<<<<<<< HEAD
     -- By default, the config file is reloaded when the current directory is changed
     use_autoreload = true,
 
@@ -88,77 +215,78 @@ lp.setup {
     },
 
     -- Here are examples of projects that I defined (works on linux and windows)
+=======
+>>>>>>> rework
     projects = {
-        nvim_conf = {
+        nvim_config = {
+            preset = lp.presets.lua,
             path = '~/.config/nvim',
-            run = {
-                cmd = ':so %<CR>',  -- Sources the current file
-                toggleterm = false, -- Execute this as a regular vim command
+
+			-- The entry_point key allows to specify a file to open when
+			-- using the LightProjectsSwitch command
+            entry_point = 'init.lua',
+        },
+        light_projects = {
+            preset = lp.presets.lua,
+            path = '~/work/light-projects.nvim',
+            entry_point = 'lua/light-projects.lua',
+        },
+        vkengine = {
+            preset = lp.presets.cpp,
+            path = '~/work/vkengine',
+            entry_point = 'src/main.cpp',
+            variables = {
+                app_executable = 'vkengine',
+                bench_executable = 'benchmarks',
+                test_executable = 'tests',
             },
-            -- Here is an example of a callback execution at project startup
             callback = function()
-                local opts = { noremap = true, silent = true }
-                -- This uses the set_keymap function that is similar to nvim_set_keymap
-                -- except that it has a 5th argument to interpret the right-hand side as a
-                -- ToggleTerm command
-                lp.set_keymap('n', '<leader>hello', 'echo "hello"', opts, {
-                    toggleterm = true,
-                })
+                print("This function is executed when the vkengine project gets loaded")
             end
         },
-        -- My commands when working on a C++ project called "my_cpp_project"
-        my_cpp_project =
-            path = '~/work/my_cpp_project/',
-            -- Those variables will be replaced in the commands below
-            -- for example, ${config} is replaced by 'Debug' here
+        pysand = {
+            preset = lp.presets.python,
+            path = '~/work/pysand',
+            entry_point = 'pysand.py',
             variables = {
-                config = 'Debug',
-                cxx_compiler = 'clang++',
-                c_compiler = 'clang'),
-                app_executable = 'my_cpp_project',
-                test_executable = 'HashMap_test',
-                bench_executable = 'HashMap_bench',
-				-- You might like to using the ternary if function
-				-- example_variable = lp.tif(condition, value_if_true, value_if_false),
-
+                app_executable = 'pysand.py',
             },
-            -- Run cmake to configure the project
-            configure = {
-                cmd = 'cmake . -B build'
-                    .. ' -DCMAKE_CXX_COMPILER=${cxx_compiler}'
-                    .. ' -DCMAKE_C_COMPILER=${c_compiler}'
-                    .. ' -G "Ninja Multi-Config"'
-                    .. ' -DCMAKE_EXPORT_COMPILE_COMMANDS=ON',
-            },
-            -- Build app
-            build = {
-                cmd = 'cmake --build build --config ${config}',
-            },
-            -- Run the main app
-            run = {
-                cmd = 'build/${config}/${app_executable}',
-            },
-            -- My unit tests
-            test = {
-                cmd = 'cd build; ctest',
-            },
-            -- My benchmarks
-            bench = {
-                cmd = 'build/${config}/${bench_executable}',
-            },
-        },
-,
-    },
+        }
+    }
 }
+
 ```
+
+### Command types
+
+As of today, four command types are available:
+
+- `lp.cmdtypes.raw`: The command is executed as a vim command (using `:cmd<CR>`)
+- `lp.cmdtypes.toggleterm`: The command is executed as a
+  [ToggleTerm](https://github.com/akinsho/toggleterm.nvim) command (using
+  `:TermExec cmd='cmd'<CR>`)
+- `lp.cmdtypes.lua_function`: The command is executed as a lua function. For
+  example, this `run` command prints "Hello" when executed
+
+```lua
+	run = { cmd = function() print("Hello") end, type = lp.cmdtypes.lua_function }
+```
+
+- `lp.cmdtypes.sequential`: Executes the given command in order. This may have
+  undefined behaviors if mixed command types are passed. For example, in the
+  `cpp` example above, the `build_and_debug` command defined as:
+
+```lua
+    build_and_debug = { cmd = { 'build', 'debug' }, type = lp.cmdtypes.sequential }
+```
+
+will execute the `build` command (which is a `lp.cmdtypes.toggleterm` command),
+followed by a raw command that starts a debug session. Thus, the session might
+start before the build has completed. If you find a way to wait for the previous
+command to finish before starting the next one, feel free to contribute!
 
 ## Contribute
 
 This project is available under the MIT license. Feel free to use, modify, copy,
 etc. Also if you think of something that is missing, consider opening an issue
 or creating a pull request.
-
-## Known bugs
-
-- The `configure` command defined in the example config file does not work on
-  vim mode shells.
