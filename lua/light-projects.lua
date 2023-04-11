@@ -37,7 +37,11 @@ M.setup_commands = function()
     vim.api.nvim_create_user_command("LightProjectsReload", ":lua require('light-projects').reload()", {})
     vim.api.nvim_create_user_command("LightProjectsToggle", ":lua require('light-projects').toggle_project()", {})
     vim.api.nvim_create_user_command("LightProjectsConfig", ":lua require('light-projects').open_config()", {})
-    vim.api.nvim_create_user_command("LightProjectsSwitch", ":lua require('light-projects').telescope_project_picker()", {})
+    vim.api.nvim_create_user_command(
+        "LightProjectsSwitch",
+        ":lua require('light-projects').telescope_project_picker()",
+        {}
+    )
 end
 
 local pickers = require "telescope.pickers"
@@ -54,16 +58,19 @@ M.telescope_project_picker = function(opts)
             results = M.project_names,
         },
         sorter = conf.generic_sorter(opts),
-
         attach_mappings = function(prompt_bufnr, map)
             actions.select_default:replace(function()
                 actions.close(prompt_bufnr)
                 local selection = action_state.get_selected_entry()
-                vim.cmd('cd ' .. M.projects[selection[1]].path)
+                local p = M.projects[selection[1]]
+
+                vim.cmd('cd ' .. p.path)
+                if p.entry_point ~= nil then
+                    vim.cmd('e ' .. p.entry_point)
+                end
             end)
             return true
         end,
-
     }):find()
 end
 
@@ -95,7 +102,6 @@ M.store_projects = function(projects)
     M.project_names = {}
 
     for proj_name, config in pairs(projects) do
-        print(proj_name)
         table.insert(M.project_names, proj_name)
         M.projects[proj_name] = {}
         local p = M.projects[proj_name]
@@ -164,6 +170,12 @@ M.store_projects = function(projects)
                 p.cmds[cmd_name] = M.parse_sequential_command(cmd.cmd, p.cmds)
             end
         end
+
+        -- Storing on project toggle callback
+        p.callback = config.callback
+
+        -- Storing project entry point
+        p.entry_point = config.entry_point
     end
 end
 
