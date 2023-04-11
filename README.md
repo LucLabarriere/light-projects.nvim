@@ -33,18 +33,15 @@ project folders.
 - Supports [ToggleTerm](https://github.com/akinsho/toggleterm.nvim) to execute a
   command in the float terminal (using `:TermExec cmd='my_cmd'<CR>`)
 - Supports an additionnal callback to be ran when the project is loaded
-- Command `LightProjectsConfig` (or `lp.open_config()`):
-  Opens the config file
-- Command `LightProjectsReload` (or `lp.reload()`):
-  reloads the config file. It basically just sources the config file.
-- Command `LightProjectsSwitch` (or
-  `lp.telescope_project_picker()`): opens a
+- Command `LightProjectsConfig` (or `lp.open_config()`): Opens the config file
+- Command `LightProjectsReload` (or `lp.reload()`): reloads the config file. It
+  basically just sources the config file.
+- Command `LightProjectsSwitch` (or `lp.telescope_project_picker()`): opens a
   [telescope](https://github.com/nvim-telescope/telescope.nvim) window to switch
   project. If the chosen project has an `entry_point` defined, opens the
   specified file. If not, just `cd` into the directory
-- Command `LightProjectToggle` (or
-  `lua lp.toggle_project()`): toggles the project. This
-  is the command that is ran on `VimEnter` and `DirChanged`.
+- Command `LightProjectToggle` (or `lua lp.toggle_project()`): toggles the
+  project. This is the command that is ran on `VimEnter` and `DirChanged`.
 
 ## Installation
 
@@ -55,6 +52,9 @@ Plug 'LucLabarriere/light-projects.nvim'
 ```
 
 ## Configuration
+
+An example of a config file is given [in the repository](./example_config.lua).
+The configuration is explained below.
 
 ### Keymaps
 
@@ -87,7 +87,7 @@ like
 
 Then define a bunch of presets in the presets dictionary. For example, in the
 example below, I define a preset called "lua" that I will use all my neovim
-config files (see the [Command types](#commandtypes) section for more infos on
+config files (see the [Command types](#command-types) section for more infos on
 the `type` argument.
 
 ```lua
@@ -200,9 +200,9 @@ lp.setup {
                 bench_executable = 'benchmarks',
                 test_executable = 'tests',
             },
-			callback = function()
-				print("This function is executed when the vkengine project gets loaded")
-			end
+            callback = function()
+                print("This function is executed when the vkengine project gets loaded")
+            end
         },
         pysand = {
             preset = lp.presets.python,
