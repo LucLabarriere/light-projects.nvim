@@ -138,6 +138,9 @@ M.store_projects = function(projects)
                         p.raw_cmds[cmd_name] = cmd_value
                     end
                 end
+
+                p.callback = config.callback
+                p.entry_point = config.entry_point
             end
         end
 
