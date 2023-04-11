@@ -27,15 +27,9 @@ project folders.
 
 ## Features
 
-<<<<<<< HEAD
-- Default key bindings for common programming tasks (build, run, tests, etc.)
-- The key bindings get loaded on `VimEnter` and `DirChanged` autocmds (set
-  use_autoreload to false in the setup arguments to disable this behaviour)
-=======
 - Create keybindings for common (custom) tasks, such as `run`, `build`, `debug`,
   etc.
 - The key bindings get loaded on `VimEnter` and `DirChanged` autocmds
->>>>>>> rework
 - Supports [ToggleTerm](https://github.com/akinsho/toggleterm.nvim) to execute a
   command in the float terminal (using `:TermExec cmd='my_cmd'<CR>`)
 - Supports an additionnal callback to be ran when the project is loaded
@@ -191,32 +185,6 @@ lp.setup {
     -- lp.cmdtypes.lua_function
     default_cmdtype = lp.cmdtypes.toggleterm,
 
-<<<<<<< HEAD
-    -- By default, the config file is reloaded when the current directory is changed
-    use_autoreload = true,
-
-    -- Use the default mappings you need
-    default_mappings = {
-        configure = '<leader>cc',
-        build = '<leader>bb',
-        run = '<leader>rr',
-        test = '<leader>tt',
-        bench = '<leader>ee',
-        debug = '<leader>dd',
-        clean = '<leader>cle',
-
-        -- If you don't define these commands manually in the project definition,
-        -- they get defaulted to their combinations. For example for build_and_run:
-        -- :TermExec cmd='build; run'<CR>
-        build_and_run = '<leader>br',
-        build_and_test = '<leader>bt',
-        build_and_bench = '<leader>be',
-        build_and_debug = '<leader>bd',
-    },
-
-    -- Here are examples of projects that I defined (works on linux and windows)
-=======
->>>>>>> rework
     projects = {
         nvim_config = {
             preset = lp.presets.lua,
