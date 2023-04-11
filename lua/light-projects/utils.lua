@@ -28,25 +28,13 @@ Utils.tif = function(cond, a, b)
     end
 end
 
-Utils.deep_copy = function (orig, copies)
-    copies = copies or {}
-    local orig_type = type(orig)
-    local copy
-    if orig_type == 'table' then
-        if copies[orig] then
-            copy = copies[orig]
-        else
-            copy = {}
-            copies[orig] = copy
-            for orig_key, orig_value in next, orig, nil do
-                copy[Utils.deepcopy(orig_key, copies)] = Utils.deepcopy(orig_value, copies)
-            end
-            setmetatable(copy, Utils.deepcopy(getmetatable(orig), copies))
+Utils.replace_vars = function(cmd, variables)
+    if variables ~= nil then
+        for k, v in pairs(variables) do
+            cmd = cmd:gsub("${" .. k .. "}", v)
         end
-    else -- number, string, boolean, etc
-        copy = orig
     end
-    return copy
+    return cmd
 end
 
 return Utils

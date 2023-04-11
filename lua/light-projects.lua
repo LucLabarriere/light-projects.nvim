@@ -29,13 +29,55 @@ M.setup_commands = function()
     vim.api.nvim_create_augroup("LightProjects", { clear = true })
     vim.api.nvim_create_autocmd(
         { "DirChanged", "VimEnter" }, {
-            command = ":LightProjectsReload",
+            command = ":LightProjectsToggle",
             group = "LightProjects",
         }
     )
 
     vim.api.nvim_create_user_command("LightProjectsReload", ":lua require('light-projects').reload()", {})
+    vim.api.nvim_create_user_command("LightProjectsToggle", ":lua require('light-projects').toggle_project()", {})
     vim.api.nvim_create_user_command("LightProjectsConfig", ":lua require('light-projects').open_config()", {})
+end
+
+local pickers = require "telescope.pickers"
+local finders = require "telescope.finders"
+local conf = require("telescope.config").values
+
+M.telescope_project_picker = function(opts)
+    opts = opts or {}
+    pickers.new(opts, {
+        prompt_title = "LightProjects",
+        finder = finders.new_table {
+            results = M.projects
+        },
+        sorter = conf.generic_sorter(opts),
+    }):find()
+end
+
+M.telescope_project_picker()
+
+M.parse_raw_command = function(cmd, variables)
+    cmd = Utils.replace_vars(cmd, variables)
+    return function() vim.cmd(cmd) end
+end
+
+M.parse_toggleterm_command = function(cmd, proj_path, variables)
+    if M.cd_before_cmd then
+        cmd = "cd " .. Utils.get_path(proj_path) .. "; " .. cmd
+    end
+    cmd = Utils.replace_vars(cmd, variables)
+    cmd = "TermExec cmd='" .. cmd .. "'"
+    return function() vim.cmd(cmd) end
+end
+
+M.parse_sequential_command = function(cmd, other_commands)
+    local functions = {}
+
+    for _, v in pairs(cmd) do
+        table.insert(functions, other_commands[v])
+    end
+
+    return function() for _, v in pairs(functions) do v() end end
 end
 
 M.store_projects = function(projects)
@@ -43,10 +85,11 @@ M.store_projects = function(projects)
         M.projects[proj_name] = {}
         local p = M.projects[proj_name]
         p.variables = {}
-        p.commands = {}
+        p.cmds = {}
+        p.raw_cmds = {}
 
         -- Storing path to project
-        if p.path == nil then
+        if config.path == nil then
             print("Incorrect project config: path to " .. proj_name .. " is nil")
             return
         end
@@ -57,7 +100,24 @@ M.store_projects = function(projects)
 
         -- Applying preset
         if config.preset ~= nil then
-            Utils.deep_copy(M.presets[config.preset], p)
+            if config.preset.variables == nil and config.preset.cmds == nil then
+                print("Incorrect project config: preset " .. config.preset .. " is empty")
+            else
+                if config.preset.variables ~= nil then
+                    for var_name, var_value in pairs(config.preset.variables) do
+                        p.variables[var_name] = var_value
+                    end
+                end
+
+                if config.preset.cmds ~= nil then
+                    for cmd_name, cmd_value in pairs(config.preset.cmds) do
+                        if cmd_value.type == nil then
+                            cmd_value.type = M.default_cmdtype
+                        end
+                        p.raw_cmds[cmd_name] = cmd_value
+                    end
+                end
+            end
         end
 
         -- Storing additional variables
@@ -66,106 +126,99 @@ M.store_projects = function(projects)
                 p.variables[var_name] = var_value
             end
         end
-        print(p.variables)
 
         -- Storing additional commands
-        if config.commands ~= nil then
-            for cmd_name, cmd_value in pairs(config.commands) do
-                p.commands[cmd_name] = cmd_value
+        if config.cmds ~= nil then
+            for cmd_name, cmd_value in pairs(config.cmds) do
+                if cmd_value.type == nil then
+                    cmd_value.type = M.default_cmdtype
+                end
+                p.raw_cmds[cmd_name] = cmd_value
             end
         end
-        print(p.commands)
+
+        -- Parsing commands and storing them as lua functions
+        for cmd_name, cmd in pairs(p.raw_cmds) do
+            if cmd.type == M.cmdtypes.raw then
+                p.cmds[cmd_name] = M.parse_raw_command(cmd.cmd, p.variables)
+            elseif cmd.type == M.cmdtypes.lua_function then
+                p.cmds[cmd_name] = cmd.cmd
+            elseif cmd.type == M.cmdtypes.toggleterm then
+                p.cmds[cmd_name] = M.parse_toggleterm_command(cmd.cmd, p.path, p.variables)
+            elseif cmd.type == M.cmdtypes.sequential then
+                p.cmds[cmd_name] = M.parse_sequential_command(cmd.cmd, p.cmds)
+            end
+        end
     end
 end
 
 M.toggle_project = function()
-    local opts = { noremap = true, silent = true }
     local p_path = Utils.get_path(vim.fn.getcwd())
     local p_name = M.project_paths_name_mapping[p_path]
     if p_name == nil then return end
 
-    local p = M.projects[p_path]
+    local p = M.projects[p_name]
 
     if M.setup_args.verbose > 0 then
-        print("LightProjects: [" .. M.project_paths[M.current_project_path] .. "]")
+        print("LightProjects: [" .. p_name .. "]")
 
         if M.setup_args.verbose > 1 then
-            print("LightProjects: current path: " .. M.current_project_path)
+            print("LightProjects: current path: " .. p_path)
         end
     end
 
-    -- Here, apply keymappings
+    -- Here, set keymaps
+    for cmd_name, cmd in pairs(p.cmds) do
+        if M.keymap_names[cmd_name] == nil then
+            print("LightProjects: Command '" .. cmd_name .. "' set but no matching keymap found")
+        else
+            local km = M.keymaps[cmd_name]
+            vim.keymap.set('n', km, cmd, { noremap = true, silent = true })
+        end
+    end
 
-    if M.project.callback ~= nil then
-        M.project.callback()
+    if p.callback ~= nil then
+        p.callback()
     end
 end
 
 M.setup = function(setup_args)
     M.setup_args = setup_args or {}
+    M.keymap_names = {}
+
+    for k, _ in pairs(M.keymaps) do
+        M.keymap_names[k] = k
+    end
 
     M.on_windows = vim.fn.has('win32')
     M.verbose = setup_args.verbose or 1
     M.default_cmdtype = setup_args.default_cmdtype or M.cmdtypes.raw
     M.config_path = M.setup_args.config_path
+    M.cd_before_cmd = setup_args.cd_before_cmd or true
 
     M.setup_commands()
     M.store_projects(setup_args.projects or {})
-    M.toggle_project()
 end
 
 M.reload = function()
+    if M.verbose > 1 then
+        print("LightProjects: Reloading")
+    end
     if M.config_path == nil then
-        print("No config path set")
+        print("LightProjects: No config path set")
         return
     end
 
-    vim.api.nvim_exec("source " .. M.config_path, false)
-    M.toggle_project()
+    vim.cmd("source " .. M.config_path)
 end
 
 M.open_config = function()
     if M.config_path == nil then
-        print("No config path set")
+        print("LightProjects: No config path set")
         return
     end
 
     vim.api.nvim_win_set_buf(0, vim.fn.bufadd(M.config_path))
-end
-
-M.set_keymap = function(mode, lhs, rhs, opts, light_projects_opts)
-    -- By default, cd before executing toggleterm command
-    if light_projects_opts.cd_before_cmd == nil then
-        light_projects_opts.cd_before_cmd = true
-    end
-
-    if light_projects_opts.toggleterm == nil then
-        light_projects_opts.toggleterm = M.use_toggleterm
-    end
-
-    if light_projects_opts.toggleterm == true then
-        if light_projects_opts.cd_before_cmd == true then
-            rhs = "cd " .. M.current_project_path .. "; " .. rhs
-        end
-
-        if M.on_windows then
-            rhs = rhs:gsub('"', '\\"')
-        end
-
-        rhs = ":TermExec cmd='" .. rhs .. "'<CR>"
-    end
-
-    if M.project.variables ~= nil then
-        for k, v in pairs(M.project.variables) do
-            rhs = rhs:gsub("${" .. k .. "}", v)
-        end
-    end
-
-    if M.setup_args.verbose > 2 then
-        print("Registered command: " .. rhs)
-    end
-
-    vim.api.nvim_set_keymap(mode, lhs, rhs, opts)
 end
 
 return M
