@@ -17,13 +17,22 @@ subject to changes in the future
     - [Keymaps](#keymaps)
     - [Presets](#presets)
     - [Setup](#setup)
-  - [Command types](#command-types)
+    - [Git bare repositories](#git-bare-repositories)
+    - [Command types](#command-types)
   - [Contribute](#contribute)
   <!--toc:end-->
 
 I made this neovim plugin for my personal use. I wanted a simple interface to
 set up _per project_ configurations without having to create `.lua` files in my
 project folders.
+
+![Demo Animation](../assets/lp-example.gif?raw=true)
+
+In this demo, clangd (C++ LSP) does not work because the project is not built
+with the CMAKE_EXPORT_COMPILE_COMMANDS variable. Thus, I execute
+`:LightProjectsConfig` to open the config file, modify the `configure` command,
+switch back to my cpp project, execute the `configure` command in a ToggleTerm
+window, and restart my LSP with `:LspRestart`.
 
 ## Features
 
@@ -42,14 +51,8 @@ project folders.
   specified file. If not, just `cd` into the directory
 - Command `LightProjectToggle` (or `lua lp.toggle_project()`): toggles the
   project. This is the command that is ran on `VimEnter` and `DirChanged`.
-
-![Demo Animation](../assets/lp-example.gif?raw=true)
-
-In this demo, clangd (C++ LSP) does not work because the project is not built
-with the CMAKE_EXPORT_COMPILE_COMMANDS variable. Thus, I execute
-`:LightProjectsConfig` to open the config file, modify the `configure` command,
-switch back to my cpp project, execute the `configure` command in a ToggleTerm
-window, and restart my LSP with `:LspRestart`.
+- Supports git bare repository with branches in the same folder. Checkout the
+  (#git-bare-repositories) section for more information.
 
 ## Installation
 
@@ -224,6 +227,34 @@ lp.setup {
 }
 
 ```
+
+### Git bare repositories
+
+For example, cloning this repository with these commands:
+
+```bash
+git clone https://github.com/LucLabarriere/light-projects.nvim.git --bare
+cd light-projects.nvim
+git worktree add main
+git worktree add dev
+```
+
+will initialize a bare git repository pointing to remote github repo, with two
+subfolders called `main`and `dev` storing local copies of the repository in
+these branches. Then, configuring the project using:
+
+```lua
+light_projects = {
+    preset=  lp.presets.lua,
+    path = '~/work/light-projects.nvim',
+    entry_point = 'lua/light-projects.lua',
+    bare_git = true,
+},
+```
+
+will allow for automatic detection of project branches in the
+`LightProjectSwitch` command:
+![Demo git bare repositories](../assets/lp-git-bare.png?raw=true)
 
 ### Command types
 

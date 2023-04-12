@@ -103,9 +103,7 @@ M.store_projects = function(projects)
     M.project_names = {}
 
     for proj_name, config in pairs(projects) do
-        table.insert(M.project_names, proj_name)
-        M.projects[proj_name] = {}
-        local p = M.projects[proj_name]
+        local p = {}
         p.variables = {}
         p.cmds = {}
         p.raw_cmds = {}
@@ -116,9 +114,6 @@ M.store_projects = function(projects)
             return
         end
         p.path = Utils.get_path(config.path)
-
-        -- Storing path - proj_name mapping to be able to toggle projects
-        M.project_paths_name_mapping[p.path] = proj_name
 
         -- Applying preset
         if config.preset ~= nil then
@@ -140,8 +135,13 @@ M.store_projects = function(projects)
                     end
                 end
 
-                config.callback = config.preset.callback
-                config.entry_point = config.preset.entry_point
+                if config.preset.callback ~= nil then
+                    config.callback = config.preset.callback
+                end
+
+                if config.preset.entry_point ~= nil then
+                    config.entry_point = config.preset.entry_point
+                end
             end
         end
 
@@ -186,20 +186,23 @@ M.store_projects = function(projects)
 
         if p.bare_git then
             -- If p.bare_git is true, defines the default branch worktree
-            p.branches = Plenary_scan.scan_dir(p.path .. '/worktrees', { hidden = true, depth = 1, add_dirs = true })
-            for i, _ in ipairs(p.branches) do
-                p.branches[i] = Utils.get_path(p.branches[i])
-                p.branches[i] = string.gsub(p.branches[i], '^.*/worktrees/', '')
-                p.branches[i] = string.gsub(p.branches[i], '/$', '')
+            local branches = Plenary_scan.scan_dir(p.path .. '/worktrees', { hidden = true, depth = 1, add_dirs = true })
+            for i, _ in ipairs(branches) do
+                branches[i] = Utils.get_path(branches[i])
+                branches[i] = string.gsub(branches[i], '^.*/worktrees/', '')
+                branches[i] = string.gsub(branches[i], '/$', '')
+                local branched_proj_name = proj_name .. ' (' .. branches[i] .. ')'
+                local branched_path = p.path ..  branches[i]
+                M.project_paths_name_mapping[branched_path] = branched_proj_name
+                M.projects[branched_proj_name] = vim.deepcopy(p)
+                M.projects[branched_proj_name].path = branched_path
+                table.insert(M.project_names, branched_proj_name)
             end
-
-            p.default_branch = config.default_branch
-
-            if p.default_branch == nil then
-                p.default_branch = p.branches[0]
-            end
-
-
+        else
+            -- Storing path - proj_name mapping to be able to toggle projects
+            M.project_paths_name_mapping[p.path] = proj_name
+            M.projects[proj_name] = p
+            table.insert(M.project_names, proj_name)
         end
     end
 end
@@ -207,6 +210,7 @@ end
 
 M.toggle_project = function()
     local p_path = Utils.get_path(vim.fn.getcwd())
+    print(p_path)
     local p_name = M.project_paths_name_mapping[p_path]
     if p_name == nil then return end
 
