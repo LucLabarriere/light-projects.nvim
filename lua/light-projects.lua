@@ -1,6 +1,7 @@
 local M = {}
 
 local Utils = require 'light-projects.utils'
+local Plenary_scan = require 'plenary.scandir'
 Utils.setup(M)
 
 M.keymaps = {}
@@ -139,8 +140,8 @@ M.store_projects = function(projects)
                     end
                 end
 
-                p.callback = config.callback
-                p.entry_point = config.entry_point
+                config.callback = config.preset.callback
+                config.entry_point = config.preset.entry_point
             end
         end
 
@@ -179,8 +180,30 @@ M.store_projects = function(projects)
 
         -- Storing project entry point
         p.entry_point = config.entry_point
+
+        -- Wethever the folder is a bare git repo or not
+        p.bare_git = config.bare_git
+
+        if p.bare_git then
+            -- If p.bare_git is true, defines the default branch worktree
+            p.branches = Plenary_scan.scan_dir(p.path .. '/worktrees', { hidden = true, depth = 1, add_dirs = true })
+            for i, _ in ipairs(p.branches) do
+                p.branches[i] = Utils.get_path(p.branches[i])
+                p.branches[i] = string.gsub(p.branches[i], '^.*/worktrees/', '')
+                p.branches[i] = string.gsub(p.branches[i], '/$', '')
+            end
+
+            p.default_branch = config.default_branch
+
+            if p.default_branch == nil then
+                p.default_branch = p.branches[0]
+            end
+
+
+        end
     end
 end
+
 
 M.toggle_project = function()
     local p_path = Utils.get_path(vim.fn.getcwd())
@@ -206,6 +229,8 @@ M.toggle_project = function()
             vim.keymap.set('n', km, cmd, { noremap = true, silent = true })
         end
     end
+
+    print()
 
     if p.callback ~= nil then
         p.callback()
