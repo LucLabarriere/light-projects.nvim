@@ -195,17 +195,21 @@ M.store_projects = function(projects)
 
         if p.bare_git then
             -- If p.bare_git is true, defines the default branch worktree
-            local branches = Plenary_scan.scan_dir(p.path .. '/worktrees', { hidden = true, depth = 1, add_dirs = true })
+            local branches = Plenary_scan.scan_dir(p.path .. 'worktrees', { hidden = true, depth = 1, add_dirs = true })
             for i, _ in ipairs(branches) do
                 branches[i] = Utils.get_path(branches[i])
-                branches[i] = string.gsub(branches[i], '^.*/worktrees/', '')
-                branches[i] = string.gsub(branches[i], '/$', '')
-                local branched_proj_name = proj_name .. ' (' .. branches[i] .. ')'
-                local branched_path = p.path ..  branches[i]
-                M.project_paths_name_mapping[branched_path] = branched_proj_name
-                M.projects[branched_proj_name] = vim.deepcopy(p)
-                M.projects[branched_proj_name].path = branched_path
-                table.insert(M.project_names, branched_proj_name)
+                local line = Utils.read_line(branches[i] .. 'gitdir')
+
+                if line ~= nil then
+                    local branched_path = string.gsub(line, '.git$', '')
+                    branches[i] = string.gsub(branches[i], '^.*/worktrees/', '')
+                    branches[i] = string.gsub(branches[i], '/$', '')
+                    local branched_proj_name = proj_name .. ' (' .. branches[i] .. ')'
+                    M.project_paths_name_mapping[branched_path] = branched_proj_name
+                    M.projects[branched_proj_name] = vim.deepcopy(p)
+                    M.projects[branched_proj_name].path = branched_path
+                    table.insert(M.project_names, branched_proj_name)
+                end
             end
         else
             -- Storing path - proj_name mapping to be able to toggle projects
@@ -219,7 +223,6 @@ end
 
 M.toggle_project = function()
     local p_path = Utils.get_path(vim.fn.getcwd())
-    print(p_path)
     local p_name = M.project_paths_name_mapping[p_path]
     if p_name == nil then return end
 
@@ -242,8 +245,6 @@ M.toggle_project = function()
             vim.keymap.set('n', km, cmd, { noremap = true, silent = true })
         end
     end
-
-    print()
 
     if p.callback ~= nil then
         p.callback()

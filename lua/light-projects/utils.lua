@@ -37,4 +37,16 @@ Utils.replace_vars = function(cmd, variables)
     return cmd
 end
 
+Utils.read_line = function(file_path)
+    local file = io.open(file_path, "r")
+
+    if file == nil then
+        return nil
+    end
+
+    local line = file:read("*l")
+    file:close()
+    return line
+end
+
 return Utils
