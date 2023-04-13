@@ -93,10 +93,14 @@ M.parse_sequential_command = function(cmd, other_commands)
     local functions = {}
 
     for _, v in pairs(cmd) do
-        table.insert(functions, other_commands[v])
+        functions[v] = other_commands[v]
     end
 
-    return function() for _, v in pairs(functions) do v() end end
+    return function()
+        for _, v in pairs(functions) do
+            v()
+        end
+    end
 end
 
 M.store_projects = function(projects)
@@ -170,7 +174,12 @@ M.store_projects = function(projects)
                 p.cmds[cmd_name] = cmd.cmd
             elseif cmd.type == M.cmdtypes.toggleterm then
                 p.cmds[cmd_name] = M.parse_toggleterm_command(cmd.cmd, p.path, p.variables)
-            elseif cmd.type == M.cmdtypes.sequential then
+            end
+        end
+
+        -- Parsing sequential commands
+        for cmd_name, cmd in pairs(p.raw_cmds) do
+            if cmd.type == M.cmdtypes.sequential then
                 p.cmds[cmd_name] = M.parse_sequential_command(cmd.cmd, p.cmds)
             end
         end
