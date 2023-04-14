@@ -7,6 +7,7 @@ Utils.setup(M)
 M.keymaps = {}
 M.presets = {}
 M.projects = {}
+M.command_buffer = {}
 M.project_paths_name_mapping = {}
 M.cmdtypes = {
     raw = 0,
@@ -80,26 +81,45 @@ M.parse_raw_command = function(cmd, variables)
     return function() vim.cmd(cmd) end
 end
 
+M.notify_cmd_finished = function()
+    if M.command_buffer ~= nil and #M.command_buffer > 0 then
+        M.command_buffer[1]()
+        table.remove(M.command_buffer, 1)
+    end
+end
+
+M.execute_next_cmd = function()
+    if M.command_buffer ~= nil and #M.command_buffer > 0 then
+        M.command_buffer[1]()
+        table.remove(M.command_buffer, 1)
+    end
+end
+
 M.parse_toggleterm_command = function(cmd, proj_path, variables)
     if M.cd_before_cmd then
         cmd = "cd " .. Utils.get_path(proj_path) .. "; " .. cmd
     end
     cmd = Utils.replace_vars(cmd, variables)
-    cmd = "TermExec cmd='" .. cmd .. "'"
-    return function() vim.cmd(cmd) end
+    local toggleterm = require('toggleterm')
+
+    local ending_callback = "; nvim --server "
+        .. M.server
+        .. " --remote-send \":lua require(\'light-projects\').execute_next_cmd()<CR>\""
+
+    --return function() require('toggleterm').exec_command(cmd, 1) end
+    return function() toggleterm.exec(cmd .. ending_callback, nil, nil, nil, nil, true) end
 end
 
 M.parse_sequential_command = function(cmd, other_commands)
     local functions = {}
 
     for _, v in pairs(cmd) do
-        functions[v] = other_commands[v]
+        table.insert(functions, other_commands[v])
     end
 
     return function()
-        for _, v in pairs(functions) do
-            v()
-        end
+        M.command_buffer = vim.deepcopy(functions)
+        M.execute_next_cmd()
     end
 end
 
@@ -259,6 +279,10 @@ M.setup = function(setup_args)
         M.keymap_names[k] = k
     end
 
+    if M.server == nil then
+        M.server = vim.api.nvim_exec('echo serverstart()', true)
+    end
+
     M.on_windows = vim.fn.has('win32')
     M.verbose = setup_args.verbose or 1
     M.default_cmdtype = setup_args.default_cmdtype or M.cmdtypes.raw
@@ -270,6 +294,7 @@ M.setup = function(setup_args)
 end
 
 M.reload = function()
+    print("TEST")
     if M.verbose > 1 then
         print("LightProjects: Reloading")
     end
@@ -278,7 +303,7 @@ M.reload = function()
         return
     end
 
-    vim.cmd("source " .. M.config_path)
+    print(vim.api.nvim_exec("source " .. M.config_path, true))
 end
 
 M.open_config = function()

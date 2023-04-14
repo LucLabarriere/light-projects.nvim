@@ -271,9 +271,10 @@ As of today, four command types are available:
 	run = { cmd = function() print("Hello") end, type = lp.cmdtypes.lua_function }
 ```
 
-- `lp.cmdtypes.sequential`: Executes the given command in order. This may have
-  undefined behaviors if mixed command types are passed. For example, in the
-  `cpp` example above, the `build_and_debug` command defined as:
+- `lp.cmdtypes.sequential`: Executes the given command in order. This is kind of
+  experimental and may have undefined behaviors if mixed command types are
+  passed. For example, in the `cpp` example above, the `build_and_debug` command
+  defined as:
 
 ```lua
     build_and_debug = { cmd = { 'build', 'debug' }, type = lp.cmdtypes.sequential }
