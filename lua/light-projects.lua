@@ -16,17 +16,6 @@ M.cmdtypes = {
     lua_function = 3,
 }
 
--- On setup, we store the projects, and initialize the current project
--- Tochange:
--- Toggling a project means:
--- Applying preset then modifying it with project specific settings
---
--- Applying a preset means:
--- We store the variables
--- We store the commands
--- We use set_keymap
---
-
 M.setup_commands = function()
     vim.api.nvim_create_augroup("LightProjects", { clear = true })
     vim.api.nvim_create_autocmd(
@@ -59,6 +48,7 @@ M.telescope_project_picker = function(opts)
         finder = finders.new_table {
             results = M.project_names,
         },
+
         sorter = conf.generic_sorter(opts),
         attach_mappings = function(prompt_bufnr, map)
             actions.select_default:replace(function()
@@ -81,13 +71,6 @@ M.parse_raw_command = function(cmd, variables)
     return function() vim.cmd(cmd) end
 end
 
-M.notify_cmd_finished = function()
-    if M.command_buffer ~= nil and #M.command_buffer > 0 then
-        M.command_buffer[1]()
-        table.remove(M.command_buffer, 1)
-    end
-end
-
 M.execute_next_cmd = function()
     if M.command_buffer ~= nil and #M.command_buffer > 0 then
         M.command_buffer[1]()
@@ -97,16 +80,17 @@ end
 
 M.parse_toggleterm_command = function(cmd, proj_path, variables)
     if M.cd_before_cmd then
-        cmd = "cd " .. Utils.get_path(proj_path) .. "; " .. cmd
+        cmd = "cd " .. Utils.get_path(proj_path) .. " && " .. cmd
     end
     cmd = Utils.replace_vars(cmd, variables)
     local toggleterm = require('toggleterm')
 
-    local ending_callback = "; nvim --server "
+    local ending_callback = " &&  nvim --server "
         .. M.server
-        .. " --remote-send \":lua require(\'light-projects\').execute_next_cmd()<CR>\""
+        .. " --remote-send \"<ESC>:sleep 10m | lua require(\'light-projects\').execute_next_cmd()<CR>\""
 
     --return function() require('toggleterm').exec_command(cmd, 1) end
+    require('toggleterm.terminal').get_or_create_term()
     return function() toggleterm.exec(cmd .. ending_callback, nil, nil, nil, nil, true) end
 end
 
@@ -118,8 +102,12 @@ M.parse_sequential_command = function(cmd, other_commands)
     end
 
     return function()
-        M.command_buffer = vim.deepcopy(functions)
+        M.command_buffer = {}
+        for _, v in pairs(functions) do
+            table.insert(M.command_buffer, v)
+        end
         M.execute_next_cmd()
+        --print(vim.inspect(M.command_buffer))
     end
 end
 
@@ -214,7 +202,6 @@ M.store_projects = function(projects)
         p.bare_git = config.bare_git
 
         if p.bare_git then
-            -- If p.bare_git is true, defines the default branch worktree
             local branches = Plenary_scan.scan_dir(p.path .. 'worktrees', { hidden = true, depth = 1, add_dirs = true })
             for i, _ in ipairs(branches) do
                 branches[i] = Utils.get_path(branches[i])
@@ -256,7 +243,6 @@ M.toggle_project = function()
         end
     end
 
-    -- Here, set keymaps
     for cmd_name, cmd in pairs(p.cmds) do
         if M.keymap_names[cmd_name] == nil then
             print("LightProjects: Command '" .. cmd_name .. "' set but no matching keymap found")
@@ -280,7 +266,7 @@ M.setup = function(setup_args)
     end
 
     if M.server == nil then
-        M.server = vim.api.nvim_exec('echo serverstart()', true)
+        M.server = vim.fn.serverlist()[1]
     end
 
     M.on_windows = vim.fn.has('win32')
@@ -314,5 +300,9 @@ M.open_config = function()
 
     vim.api.nvim_win_set_buf(0, vim.fn.bufadd(M.config_path))
 end
+
+--local terms = require('toggleterm.terminal')
+--local terminal = terms.get_all()[1]
+--print(terminal.id)
 
 return M
