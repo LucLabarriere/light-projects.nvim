@@ -269,27 +269,28 @@ M.setup = function(setup_args)
         M.server = vim.fn.serverlist()[1]
     end
 
-    M.on_windows = vim.fn.has('win32')
+    M.n_windows = vim.fn.has('win32')
     M.verbose = setup_args.verbose or 1
     M.default_cmdtype = setup_args.default_cmdtype or M.cmdtypes.raw
     M.config_path = M.setup_args.config_path
     M.cd_before_cmd = setup_args.cd_before_cmd or true
+    M.reload_callback = setup_args.reload_callback or nil;
 
     M.setup_commands()
     M.store_projects(setup_args.projects or {})
 end
 
 M.reload = function()
-    print("TEST")
     if M.verbose > 1 then
         print("LightProjects: Reloading")
     end
-    if M.config_path == nil then
-        print("LightProjects: No config path set")
+
+    if M.reload_callback == nil then
+        print("LightProjects: No reload callback set")
         return
     end
 
-    print(vim.api.nvim_exec("source " .. M.config_path, true))
+    M.reload_callback()
 end
 
 M.open_config = function()

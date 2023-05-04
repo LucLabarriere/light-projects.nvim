@@ -44,7 +44,7 @@ window, and restart my LSP with `:LspRestart`.
 - Supports an additionnal callback to be ran when the project is loaded
 - Command `LightProjectsConfig` (or `lp.open_config()`): Opens the config file
 - Command `LightProjectsReload` (or `lp.reload()`): reloads the config file. It
-  basically just sources the config file.
+  triggers `reload_callback` set in setup.
 - Command `LightProjectsSwitch` (or `lp.telescope_project_picker()`): opens a
   [telescope](https://github.com/nvim-telescope/telescope.nvim) window to switch
   project. If the chosen project has an `entry_point` defined, opens the
@@ -179,6 +179,15 @@ lp.setup {
 
     -- Don't modify this line to be able to use the LightProjectsConfig command
     config_path = string.sub(debug.getinfo(1, "S").source, 2),
+
+    -- Reloading the config
+    -- For example using Lazy.nvim:
+    reload_callback = function()
+        local plugin = require("lazy.core.config").plugins["light-projects.nvim"]
+        require("lazy.core.loader").reload(plugin)
+    end,
+    -- Using vim-plug, you can source your config file instead
+
 
     -- By default, run the commands using :TermExec cmd='my_cmd'<CR>
     -- Available cmdtypes:
