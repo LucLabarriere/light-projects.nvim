@@ -2,6 +2,7 @@ local M = {}
 
 local Utils = require 'light-projects.utils'
 local Plenary_scan = require 'plenary.scandir'
+
 Utils.setup(M)
 
 M.keymaps = {}
@@ -89,7 +90,6 @@ M.parse_toggleterm_command = function(cmd, proj_path, variables)
         .. M.server
         .. " --remote-send \"<ESC>:sleep 10m | lua require(\'light-projects\').execute_next_cmd()<CR>\""
 
-    --return function() require('toggleterm').exec_command(cmd, 1) end
     require('toggleterm.terminal').get_or_create_term()
     return function() toggleterm.exec(cmd .. ending_callback, nil, nil, nil, nil, true) end
 end
@@ -107,7 +107,6 @@ M.parse_sequential_command = function(cmd, other_commands)
             table.insert(M.command_buffer, v)
         end
         M.execute_next_cmd()
-        --print(vim.inspect(M.command_buffer))
     end
 end
 
@@ -125,7 +124,7 @@ M.store_projects = function(projects)
             print("Incorrect project config: path to " .. proj_name .. " is nil")
             return
         end
-        p.path = Utils.get_path(config.path)
+        p.path = config.path
 
         -- Applying preset
         if config.preset ~= nil then
@@ -202,15 +201,18 @@ M.store_projects = function(projects)
         p.bare_git = config.bare_git
 
         if p.bare_git then
-            local branches = Plenary_scan.scan_dir(p.path .. 'worktrees', { hidden = true, depth = 1, add_dirs = true })
+            local base_path = Utils.Path(p.path)
+            local worktrees_path = tostring(base_path:joinpath('worktrees'))
+            local branches = Plenary_scan.scan_dir(worktrees_path, { hidden = true, depth = 1, add_dirs = true })
+
             for i, _ in ipairs(branches) do
-                branches[i] = Utils.get_path(branches[i])
-                local line = Utils.read_line(branches[i] .. 'gitdir')
+                local path = Utils.Path(branches[i])
+                local path_infos = path:_split()
+                local line = Utils.read_line(tostring(path:joinpath('gitdir')))
+                branches[i] = path_infos[#path_infos]
 
                 if line ~= nil then
                     local branched_path = string.gsub(line, '.git$', '')
-                    branches[i] = string.gsub(branches[i], '^.*/worktrees/', '')
-                    branches[i] = string.gsub(branches[i], '/$', '')
                     local branched_proj_name = proj_name .. ' (' .. branches[i] .. ')'
                     M.project_paths_name_mapping[branched_path] = branched_proj_name
                     M.projects[branched_proj_name] = vim.deepcopy(p)
@@ -220,7 +222,7 @@ M.store_projects = function(projects)
             end
         else
             -- Storing path - proj_name mapping to be able to toggle projects
-            M.project_paths_name_mapping[p.path] = proj_name
+            M.project_paths_name_mapping[Utils.Path(p.path)] = proj_name
             M.projects[proj_name] = p
             table.insert(M.project_names, proj_name)
         end
@@ -248,7 +250,7 @@ M.toggle_project = function()
             print("LightProjects: Command '" .. cmd_name .. "' set but no matching keymap found")
         else
             local km = M.keymaps[cmd_name]
-            vim.keymap.set('n', km, cmd, { noremap = true, silent = true })
+            vim.api.nvim_set_keymap('n', km, cmd, { noremap = true, silent = true, desc = 'Light-Projects: ' .. cmd_name })
         end
     end
 
