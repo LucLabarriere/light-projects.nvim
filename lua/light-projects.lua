@@ -81,7 +81,7 @@ end
 
 M.parse_toggleterm_command = function(cmd, proj_path, variables)
     if M.cd_before_cmd then
-        cmd = "cd " .. Utils.get_path(proj_path) .. " && " .. cmd
+        cmd = "cd " .. Utils.Path(proj_path) .. " && " .. cmd
     end
     cmd = Utils.replace_vars(cmd, variables)
     local toggleterm = require('toggleterm')
@@ -124,7 +124,7 @@ M.store_projects = function(projects)
             print("Incorrect project config: path to " .. proj_name .. " is nil")
             return
         end
-        p.path = config.path
+        p.path = Utils.Path(config.path).filename
 
         -- Applying preset
         if config.preset ~= nil then
@@ -202,17 +202,17 @@ M.store_projects = function(projects)
 
         if p.bare_git then
             local base_path = Utils.Path(p.path)
-            local worktrees_path = tostring(base_path:joinpath('worktrees'))
-            local branches = Plenary_scan.scan_dir(worktrees_path, { hidden = true, depth = 1, add_dirs = true })
+            local worktrees_path = base_path:joinpath('worktrees')
+            local branches = Plenary_scan.scan_dir(worktrees_path.filename, { hidden = true, depth = 1, add_dirs = true })
 
             for i, _ in ipairs(branches) do
                 local path = Utils.Path(branches[i])
                 local path_infos = path:_split()
-                local line = Utils.read_line(tostring(path:joinpath('gitdir')))
+                local line = Utils.read_line(path:joinpath('gitdir').filename)
                 branches[i] = path_infos[#path_infos]
 
                 if line ~= nil then
-                    local branched_path = string.gsub(line, '.git$', '')
+                    local branched_path = Utils.Path(string.gsub(line, '.git$', '')).filename
                     local branched_proj_name = proj_name .. ' (' .. branches[i] .. ')'
                     M.project_paths_name_mapping[branched_path] = branched_proj_name
                     M.projects[branched_proj_name] = vim.deepcopy(p)
@@ -222,7 +222,7 @@ M.store_projects = function(projects)
             end
         else
             -- Storing path - proj_name mapping to be able to toggle projects
-            M.project_paths_name_mapping[Utils.Path(p.path)] = proj_name
+            M.project_paths_name_mapping[Utils.Path(p.path).filename] = proj_name
             M.projects[proj_name] = p
             table.insert(M.project_names, proj_name)
         end
@@ -231,7 +231,7 @@ end
 
 
 M.toggle_project = function()
-    local p_path = Utils.get_path(vim.fn.getcwd())
+    local p_path = Utils.Path(vim.fn.getcwd()).filename
     local p_name = M.project_paths_name_mapping[p_path]
     if p_name == nil then return end
 
@@ -250,7 +250,8 @@ M.toggle_project = function()
             print("LightProjects: Command '" .. cmd_name .. "' set but no matching keymap found")
         else
             local km = M.keymaps[cmd_name]
-            vim.api.nvim_set_keymap('n', km, cmd, { noremap = true, silent = true, desc = 'Light-Projects: ' .. cmd_name })
+            print(cmd)
+            vim.keymap.set('n', km, cmd, { noremap = true, silent = true, desc = 'LightProjects: ' .. cmd_name })
         end
     end
 
