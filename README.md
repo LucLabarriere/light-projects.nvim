@@ -20,6 +20,7 @@ and is subject to changes in the future
     - [Git bare repositories](#git-bare-repositories)
     - [Command types](#command-types)
     - [Separate config file](#separate-config-file)
+  - [Sequential commands](#sequential-commands)
   - [Contribute](#contribute)
   <!--toc:end-->
 
@@ -404,6 +405,20 @@ end
 
 return M
 ```
+
+## Sequential commands
+
+I had a hard time setting up sequential commands, especially for ToggleTerm
+commands. I found a hack by using the nvim server (created by default at
+startup) to request the next command to be executed. When we execute a
+ToggleTerm command, here is what gets executed:
+
+```bash
+cmd && nvim --server server_name --remote-send "<ESC>:sleep 10m | lua require('light-projects').execute_next_cmd()<CR>"
+```
+
+In which the `:sleep 10m` seems necessary on windows (if you have an idea why,
+please let me know!).
 
 ## Contribute
 
