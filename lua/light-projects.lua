@@ -49,7 +49,6 @@ M.telescope_project_picker = function(opts)
         finder = finders.new_table {
             results = M.project_names,
         },
-
         sorter = conf.generic_sorter(opts),
         attach_mappings = function(prompt_bufnr, map)
             actions.select_default:replace(function()
@@ -258,6 +257,15 @@ M.toggle_project = function()
     if p.callback ~= nil then
         p.callback()
     end
+
+    if M.use_notify then
+        M.notify("Switched to: [" .. p_name .. "]", "info", {
+            title = 'LightProjects',
+            render = "compact",
+            timeout = 10,
+            stages = "fade" }
+        )
+    end
 end
 
 M.setup = function(setup_args)
@@ -270,6 +278,11 @@ M.setup = function(setup_args)
 
     if M.server == nil then
         M.server = vim.fn.serverlist()[1]
+    end
+
+    if setup_args.use_notify then
+        M.notify = require('notify')
+        M.use_notify = true
     end
 
     M.n_windows = vim.fn.has('win32')
