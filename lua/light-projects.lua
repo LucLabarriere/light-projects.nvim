@@ -249,7 +249,6 @@ M.toggle_project = function()
             print("LightProjects: Command '" .. cmd_name .. "' set but no matching keymap found")
         else
             local km = M.keymaps[cmd_name]
-            print(cmd)
             vim.keymap.set('n', km, cmd, { noremap = true, silent = true, desc = 'LightProjects: ' .. cmd_name })
         end
     end
