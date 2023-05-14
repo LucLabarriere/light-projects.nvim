@@ -2,7 +2,7 @@
 
 ## Disclamer
 
-This project has only been slightly tested on Windows, MacOS andlinux. If you
+This project has only been slightly tested on Windows, MacOS and linux. If you
 find bugs, please open an issue! It is also at the early stages of development
 and is subject to changes in the future
 
@@ -55,7 +55,7 @@ window, and restart my LSP with `:LspRestart`.
 - Command `LightProjectToggle` (or `lua lp.toggle_project()`): toggles the
   project. This is the command that is ran on `VimEnter` and `DirChanged`.
 - Supports git bare repository with branches in the same folder. Checkout the
-  (#git-bare-repositories) section for more information.
+  [git bare repositories](#git-bare-repositories) section for more information.
 - Notifications when a project is loaded using
   [nvim-notify](https://github.com/rcarriga/nvim-notify) (optional, enabled with
   `use_notify = true` in the config)
@@ -94,7 +94,7 @@ The configuration is explained below.
 
 ### Keymaps
 
-You can define the keymaps you will be using in the keymaps dictionary as so:
+Define your key mappings:
 
 ```lua
 local lp = require('light-projects')
@@ -122,7 +122,7 @@ like
 ### Presets
 
 Then define a bunch of presets in the presets dictionary. For example, in the
-example below, I define a preset called "lua" that I will use all my neovim
+example below, I define a preset called "lua" that I will use for my neovim
 config files (see the [Command types](#command-types) section for more infos on
 the `type` argument.
 
@@ -200,7 +200,7 @@ lp.setup {
     --      - 1 : prints the name of the current project
     --      - 2 : prints the current path as well
     --      - 3 : prints each registered command
-    verbose = 1,
+    verbose = 0,
 
     -- Don't modify this line to be able to use the LightProjectsConfig command
     config_path = string.sub(debug.getinfo(1, "S").source, 2),
@@ -278,9 +278,9 @@ git worktree add main
 git worktree add dev
 ```
 
-will initialize a bare git repository pointing to remote github repo, with two
+will initialize a bare git repository pointing to the github repo, with two
 worktrees called `main`and `dev` storing local copies of the repository in these
-branches. Then, configure the project using:
+branches. Setting up this project with these settings:
 
 ```lua
 light_projects = {
@@ -312,17 +312,7 @@ As of today, four command types are available:
 
 - `lp.cmdtypes.sequential`: Executes the given command in order. This is kind of
   experimental and may have undefined behaviors if mixed command types are
-  passed. For example, in the `cpp` example above, the `build_and_debug` command
-  defined as:
-
-```lua
-    build_and_debug = { cmd = { 'build', 'debug' }, type = lp.cmdtypes.sequential }
-```
-
-will execute the `build` command (which is a `lp.cmdtypes.toggleterm` command),
-followed by a raw command that starts a debug session. Thus, the session might
-start before the build has completed. If you find a way to wait for the previous
-command to finish before starting the next one, feel free to contribute!
+  passed (So far, it works well for ToggleTerm commmands).
 
 ### Separate config file
 
@@ -377,7 +367,7 @@ accross computers:
             -- configure global settings here
         }
 
-        -- Load a computer specific config file and call a custom function to setup your projects
+        -- Load a computer specific config file and call a custom function to setup the projects
         dofile(vim.fn.expand("~/.nvimenv.lua")).setup_light_projects(lp, setup_args)
     end
 }
@@ -408,10 +398,8 @@ return M
 
 ## Sequential commands
 
-I had a hard time setting up sequential commands, especially for ToggleTerm
-commands. I found a hack by using the nvim server (created by default at
-startup) to request the next command to be executed. When we execute a
-ToggleTerm command, here is what gets executed:
+I had a hard time setting up sequential commands. I found a hack by using the nvim server (created by default at
+startup) to request the next command to be executed. When a ToggleTerm command is executed, here is command used:
 
 ```bash
 cmd && nvim --server server_name --remote-send "<ESC>:sleep 10m | lua require('light-projects').execute_next_cmd()<CR>"
