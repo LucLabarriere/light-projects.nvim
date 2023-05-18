@@ -119,6 +119,8 @@ M.store_projects = function(projects)
         p.variables = {}
         p.cmds = {}
         p.raw_cmds = {}
+        p.callback = function()
+        end
 
         -- Storing path to project
         if config.path == nil then
@@ -148,11 +150,11 @@ M.store_projects = function(projects)
                 end
 
                 if config.preset.callback ~= nil then
-                    config.callback = config.preset.callback
+                    p.callback = config.preset.callback
                 end
 
                 if config.preset.entry_point ~= nil then
-                    config.entry_point = config.preset.entry_point
+                    p.entry_point = config.preset.entry_point
                 end
             end
         end
@@ -193,10 +195,14 @@ M.store_projects = function(projects)
         end
 
         -- Storing on project toggle callback
-        p.callback = config.callback
+        if config.callback ~= nil then
+            p.callback = config.callback
+        end
 
         -- Storing project entry point
-        p.entry_point = config.entry_point
+        if config.entry_point ~= nil then
+            p.entry_point = config.entry_point
+        end
 
         -- Wethever the folder is a bare git repo or not
         p.bare_git = config.bare_git
