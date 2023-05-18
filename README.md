@@ -2,9 +2,9 @@
 
 ## Disclamer
 
-This project has only been slightly tested on windows and linux. If you find
-bugs, please open an issue! It is also at the early stages of development and is
-subject to changes in the future
+This project has only been slightly tested on Windows, MacOS and linux. If you
+find bugs, please open an issue! It is also at the early stages of development
+and is subject to changes in the future
 
 ## Description
 
@@ -19,6 +19,8 @@ subject to changes in the future
     - [Setup](#setup)
     - [Git bare repositories](#git-bare-repositories)
     - [Command types](#command-types)
+    - [Separate config file](#separate-config-file)
+  - [Sequential commands](#sequential-commands)
   - [Contribute](#contribute)
   <!--toc:end-->
 
@@ -39,8 +41,9 @@ window, and restart my LSP with `:LspRestart`.
 - Create keybindings for common (custom) tasks, such as `run`, `build`, `debug`,
   etc.
 - The key bindings get loaded on `VimEnter` and `DirChanged` autocmds
-- Supports [ToggleTerm](https://github.com/akinsho/toggleterm.nvim) to execute a
-  command in the float terminal (using `:TermExec cmd='my_cmd'<CR>`)
+- Optional support for [ToggleTerm](https://github.com/akinsho/toggleterm.nvim)
+  to execute a command in the float terminal (using
+  `:TermExec cmd='my_cmd'<CR>`)
 - Supports an additionnal callback to be ran when the project is loaded
 - Command `LightProjectsConfig` (or `lp.open_config()`): Opens the config file
 - Command `LightProjectsReload` (or `lp.reload()`): reloads the config file. It
@@ -52,7 +55,10 @@ window, and restart my LSP with `:LspRestart`.
 - Command `LightProjectToggle` (or `lua lp.toggle_project()`): toggles the
   project. This is the command that is ran on `VimEnter` and `DirChanged`.
 - Supports git bare repository with branches in the same folder. Checkout the
-  (#git-bare-repositories) section for more information.
+  [git bare repositories](#git-bare-repositories) section for more information.
+- Notifications when a project is loaded using
+  [nvim-notify](https://github.com/rcarriga/nvim-notify) (optional, enabled with
+  `use_notify = true` in the config)
 
 ## Installation
 
@@ -62,6 +68,25 @@ For example using [vim-plug](https://github.com/junegunn/vim-plug):
 Plug 'LucLabarriere/light-projects.nvim'
 ```
 
+or [lazy.nvim](https://github.com/folke/lazy.nvim):
+
+```lua
+{
+    'LucLabarriere/light-projects.nvim',
+    lazy = false,
+    dependencies = {
+        'nvim-lua/plenary.nvim',
+        'nvim-telescope/telescope.nvim',
+    },
+    config = function()
+        -- Setup here
+    end
+}
+```
+
+note that `nvim-lua/plenary.nvim` and `nvim-telescope/telescope.nvim` are
+dependencies so make sure to load them before
+
 ## Configuration
 
 An example of a config file is given [in the repository](./example_config.lua).
@@ -69,7 +94,7 @@ The configuration is explained below.
 
 ### Keymaps
 
-You can define the keymaps you will be using in the keymaps dictionary as so:
+Define your key mappings:
 
 ```lua
 local lp = require('light-projects')
@@ -97,7 +122,7 @@ like
 ### Presets
 
 Then define a bunch of presets in the presets dictionary. For example, in the
-example below, I define a preset called "lua" that I will use all my neovim
+example below, I define a preset called "lua" that I will use for my neovim
 config files (see the [Command types](#command-types) section for more infos on
 the `type` argument.
 
@@ -175,10 +200,13 @@ lp.setup {
     --      - 1 : prints the name of the current project
     --      - 2 : prints the current path as well
     --      - 3 : prints each registered command
-    verbose = 1,
+    verbose = 0,
 
     -- Don't modify this line to be able to use the LightProjectsConfig command
     config_path = string.sub(debug.getinfo(1, "S").source, 2),
+
+    -- To use nvim-notify (you probably need to add it to dependencies)
+    use_notify = true
 
     -- Reloading the config
     -- For example using Lazy.nvim:
@@ -206,10 +234,12 @@ lp.setup {
 			-- using the LightProjectsSwitch command
             entry_point = 'init.lua',
         },
+        -- Example of a project using bare git repo
         light_projects = {
             preset = lp.presets.lua,
-            path = '~/work/light-projects.nvim',
+            path = '~/work/light-projects.nvim/.git',
             entry_point = 'lua/light-projects.lua',
+            bare_git = true,
         },
         vkengine = {
             preset = lp.presets.cpp,
@@ -242,20 +272,20 @@ lp.setup {
 For example, cloning this repository with these commands:
 
 ```bash
-git clone https://github.com/LucLabarriere/light-projects.nvim.git --bare
+git clone https://github.com/LucLabarriere/light-projects.nvim.git --bare light-projects.nvim/.git
 cd light-projects.nvim
 git worktree add main
 git worktree add dev
 ```
 
-will initialize a bare git repository pointing to remote github repo, with two
-subfolders called `main`and `dev` storing local copies of the repository in
-these branches. Then, configuring the project using:
+will initialize a bare git repository pointing to the github repo, with two
+worktrees called `main`and `dev` storing local copies of the repository in these
+branches. Setting up this project with these settings:
 
 ```lua
 light_projects = {
     preset=  lp.presets.lua,
-    path = '~/work/light-projects.nvim',
+    path = '~/work/light-projects.nvim/.git',
     entry_point = 'lua/light-projects.lua',
     bare_git = true,
 },
@@ -282,17 +312,101 @@ As of today, four command types are available:
 
 - `lp.cmdtypes.sequential`: Executes the given command in order. This is kind of
   experimental and may have undefined behaviors if mixed command types are
-  passed. For example, in the `cpp` example above, the `build_and_debug` command
-  defined as:
+  passed (So far, it works well for ToggleTerm commmands).
+
+### Separate config file
+
+If you're like me, you have your nvim config files stored in a remote
+repository, shared accross multiple computers. If so, you might want to define
+your projects in a separate config file. Here is how I do it using
+[lazy.nvim](https://github.com/folke/lazy.nvim). I have a global config shared
+accross computers:
 
 ```lua
-    build_and_debug = { cmd = { 'build', 'debug' }, type = lp.cmdtypes.sequential }
+{
+    'LucLabarriere/light-projects.nvim',
+    lazy = false,
+    dependencies = {
+        'rcarriga/nvim-notify',
+        'nvim-lua/plenary.nvim',
+        'nvim-telescope/telescope.nvim',
+    },
+    keys = {
+        { "<leader>lr", "<cmd>LightProjectsReload<CR>", "n" },
+        { "<leader>ls", "<cmd>LightProjectsSwitch<CR>", "n" },
+        { "<leader>lc", "<cmd>LightProjectsConfig<CR>", "n" },
+    },
+    config = function()
+        local lp = require('light-projects')
+
+        lp.keymaps = {
+            configure = '<leader>cc',
+            build = '<leader>bb',
+            source = '<leader>so',
+            run = '<leader>rr',
+            -- ... configure addition keymaps here
+        }
+
+        lp.presets.lua = {
+            cmds = {
+                source = { cmd = 'source %', type = lp.cmdtypes.raw },
+            },
+        }
+        -- ... configure additional presets here
+
+        local setup_args = {
+            verbose = 0,
+
+            reload_callback = function()
+                local plugin = require("lazy.core.config").plugins["light-projects.nvim"]
+                require("lazy.core.loader").reload(plugin)
+            end,
+
+            default_cmdtype = lp.cmdtypes.toggleterm,
+            use_notify = true,
+            -- configure global settings here
+        }
+
+        -- Load a computer specific config file and call a custom function to setup the projects
+        dofile(vim.fn.expand("~/.nvimenv.lua")).setup_light_projects(lp, setup_args)
+    end
+}
 ```
 
-will execute the `build` command (which is a `lp.cmdtypes.toggleterm` command),
-followed by a raw command that starts a debug session. Thus, the session might
-start before the build has completed. If you find a way to wait for the previous
-command to finish before starting the next one, feel free to contribute!
+Then, in `~/.nvimenv.lua`:
+
+```lua
+local M = {}
+M.setup_light_projects = function(lp, setup_args)
+    -- Setting config path here will make the LightProjectsConfig command open this file
+    setup_args.config_path = string.sub(debug.getinfo(1, "S").source, 2)
+
+    setup_args.projects = {
+        nvim_config = {
+            preset = lp.presets.lua,
+            path = '~/.config/nvim',
+            entry_point = 'init.lua',
+        },
+        -- .. setup additional projects here
+    }
+
+    lp.setup(setup_args)
+end
+
+return M
+```
+
+## Sequential commands
+
+I had a hard time setting up sequential commands. I found a hack by using the nvim server (created by default at
+startup) to request the next command to be executed. When a ToggleTerm command is executed, here is command used:
+
+```bash
+cmd && nvim --server server_name --remote-send "<ESC>:sleep 10m | lua require('light-projects').execute_next_cmd()<CR>"
+```
+
+In which the `:sleep 10m` seems necessary on windows (if you have an idea why,
+please let me know!).
 
 ## Contribute
 

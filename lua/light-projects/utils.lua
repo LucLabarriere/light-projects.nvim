@@ -1,4 +1,5 @@
 local Utils = {}
+local Path = require 'plenary.path'
 
 Utils.setup = function(root_mod)
     Utils.root = root_mod
@@ -47,6 +48,36 @@ Utils.read_line = function(file_path)
     local line = file:read("*l")
     file:close()
     return line
+end
+
+local is_uri = function(filename)
+  return string.match(filename, "^%w+://") ~= nil
+end
+
+local function is_root(pathname)
+  if Path.path.sep == "\\" then
+    return string.match(pathname, "^[A-Z]:\\?$")
+  end
+  return pathname == "/"
+end
+
+Utils.clean_path = function(pathname)
+  if is_uri(pathname) then
+    return pathname
+  end
+
+  -- Remove double path seps, it's annoying
+  pathname = pathname:gsub(Path.path.sep .. Path.path.sep, Path.path.sep)
+
+  -- Remove trailing path sep if not root
+  if not is_root(pathname) and pathname:sub(-1) == Path.path.sep then
+    return pathname:sub(1, -2)
+  end
+  return pathname
+end
+
+Utils.Path = function(pathname)
+    return Path:new(Utils.clean_path(vim.fn.expand(pathname)))
 end
 
 return Utils
