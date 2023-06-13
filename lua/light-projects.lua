@@ -114,6 +114,7 @@ M.store_projects = function(projects)
 
     for proj_name, config in pairs(projects) do
         local p = {}
+        p.name = proj_name
         p.variables = {}
         p.cmds = {}
         p.raw_cmds = {}
@@ -202,6 +203,16 @@ M.store_projects = function(projects)
             p.entry_point = config.entry_point
         end
 
+        -- Storing project dap config
+        if config.dap ~= nil then
+            p.dap = config.dap
+
+            p.dap.program = Utils.replace_vars(p.dap.program, p.variables)
+            for idx, arg in ipairs(p.dap.args) do
+                p.dap.args[idx] = Utils.replace_vars(arg, p.variables)
+            end
+        end
+
         -- Wethever the folder is a bare git repo or not
         p.bare_git = config.bare_git
 
@@ -239,6 +250,7 @@ M.toggle_project = function()
     local p_path = Utils.Path(vim.fn.getcwd()).filename
     local p_name = M.project_paths_name_mapping[p_path]
     if p_name == nil then return end
+    if M.current_project and p_name == M.current_project.name then return end
 
     local p = M.projects[p_name]
 
@@ -271,6 +283,13 @@ M.toggle_project = function()
             stages = "fade" }
         )
     end
+
+    if p.dap ~= nil then
+        p.dap.config[1].program = p.dap.program
+        p.dap.config[1].args = p.dap.args
+    end
+
+    M.current_project = p
 end
 
 M.setup = function(setup_args)
