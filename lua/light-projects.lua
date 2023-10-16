@@ -90,7 +90,7 @@ M.parse_toggleterm_command = function(cmd, proj_path, variables)
         .. " --remote-send \"<ESC>:sleep 10m | lua require(\'light-projects\').execute_next_cmd()<CR>\""
 
     require('toggleterm.terminal').get_or_create_term()
-    return function() toggleterm.exec(cmd .. ending_callback, nil, nil, nil, nil, true) end
+    return function() toggleterm.exec(cmd .. ending_callback, nil, nil, nil, nil, proj_path, true) end
 end
 
 M.parse_sequential_command = function(cmd, other_commands)
