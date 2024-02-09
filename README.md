@@ -59,6 +59,7 @@ window, and restart my LSP with `:LspRestart`.
 - Notifications when a project is loaded using
   [nvim-notify](https://github.com/rcarriga/nvim-notify) (optional, enabled with
   `use_notify = true` in the config)
+- Debug adapter protocol (DAP) basic config support
 
 ## Installation
 
@@ -77,6 +78,7 @@ or [lazy.nvim](https://github.com/folke/lazy.nvim):
     dependencies = {
         'nvim-lua/plenary.nvim',
         'nvim-telescope/telescope.nvim',
+        'rcarriga/nvim-notify', -- optional
     },
     config = function()
         -- Setup here
@@ -97,8 +99,7 @@ The configuration is explained below.
 Define your key mappings:
 
 ```lua
-local lp = require('light-projects')
-lp.keymaps = {
+local keymaps = {
     configure = '<leader>cc',
     build = '<leader>bb',
     source = '<leader>so',
@@ -121,12 +122,13 @@ like
 
 ### Presets
 
-Then define a bunch of presets in the presets dictionary. For example, in the
+Then define a bunch of presets in the presets dictionary. In the
 example below, I define a preset called "lua" that I will use for my neovim
 config files (see the [Command types](#command-types) section for more infos on
 the `type` argument.
 
 ```lua
+local presets = {}
 lp.presets.lua = {
     cmds = {
         source = { cmd = 'source %', type = lp.cmdtypes.raw },
@@ -148,11 +150,11 @@ The `${app_executable}` variable will have to be set for each project. Note that
 in these examples, the `source` and `run` entries correspond to the ones defined
 in the `lp.keymaps` dictionary
 
-A more complicated example is given below. In there, I define the `cpp` preset
-for my C++ projects. A bunch of variables are defined in the `variables`
+A more complicated example is given below. I define the `cpp` preset
+for my C++ projects. Variables are defined in the `variables`
 dictionary (those can be overwritten in the project specific configurations).
-Notice also that some variables (`${app_executable}` for example, remain
-undefined in the preset)
+Notice also that some variables (such as `${app_executable}`), remain
+undefined in the preset.
 
 ```lua
 lp.presets.cpp = {
@@ -191,78 +193,58 @@ names to execute in order.
 
 ### Setup
 
-In the setup call, a bunch of additional features and configs can be used.
+In the setup call, additional features and configs can be used.
 
 ```lua
 lp.setup {
-    -- Possible values:
-    --      - 0 : silent
-    --      - 1 : prints the name of the current project
-    --      - 2 : prints the current path as well
-    --      - 3 : prints each registered command
-    verbose = 0,
+  -- Possible values:
+  --      - 0 : silent
+  --      - 1 : prints the name of the current project
+  --      - 2 : prints the current path as well
+  --      - 3 : prints each registered command
+  verbose = 1,
 
-    -- Don't modify this line to be able to use the LightProjectsConfig command
-    config_path = string.sub(debug.getinfo(1, "S").source, 2),
+  -- Don't modify this line to be able to use the LightProjectsConfig command
+  config_path = string.sub(debug.getinfo(1, 'S').source, 2),
 
-    -- To use nvim-notify (you probably need to add it to dependencies)
-    use_notify = true
+  -- By default, run the commands using :TermExec cmd='my_cmd'<CR>
+  -- Available cmdtypes:
+  -- lp.cmdtypes.raw
+  -- lp.cmdtypes.toggleterm
+  -- lp.cmdtypes.sequential
+  -- lp.cmdtypes.lua_function
+  default_cmdtype = lp.cmdtypes.toggleterm,
 
-    -- Reloading the config
-    -- For example using Lazy.nvim:
-    reload_callback = function()
-        local plugin = require("lazy.core.config").plugins["light-projects.nvim"]
-        require("lazy.core.loader").reload(plugin)
-    end,
-    -- Using vim-plug, you can source your config file instead
-
-
-    -- By default, run the commands using :TermExec cmd='my_cmd'<CR>
-    -- Available cmdtypes:
-    -- lp.cmdtypes.raw
-    -- lp.cmdtypes.toggleterm
-    -- lp.cmdtypes.sequential
-    -- lp.cmdtypes.lua_function
-    default_cmdtype = lp.cmdtypes.toggleterm,
-
-    projects = {
-        nvim_config = {
-            preset = lp.presets.lua,
-            path = '~/.config/nvim',
-
-			-- The entry_point key allows to specify a file to open when
-			-- using the LightProjectsSwitch command
-            entry_point = 'init.lua',
-        },
-        -- Example of a project using bare git repo
-        light_projects = {
-            preset = lp.presets.lua,
-            path = '~/work/light-projects.nvim/.git',
-            entry_point = 'lua/light-projects.lua',
-            bare_git = true,
-        },
-        vkengine = {
-            preset = lp.presets.cpp,
-            path = '~/work/vkengine',
-            entry_point = 'src/main.cpp',
-            variables = {
-                app_executable = 'vkengine',
-                bench_executable = 'benchmarks',
-                test_executable = 'tests',
-            },
-            callback = function()
-                print("This function is executed when the vkengine project gets loaded")
-            end
-        },
-        pysand = {
-            preset = lp.presets.python,
-            path = '~/work/pysand',
-            entry_point = 'pysand.py',
-            variables = {
-                app_executable = 'pysand.py',
-            },
-        }
-    }
+  projects = {
+    nvim_config = {
+      preset = lp.presets.lua,
+      path = '~/.config/nvim',
+      entry_point = 'init.lua',
+    },
+    my_lua_project = {
+      preset = lp.presets.lua,
+      path = '~/path/to/my_lua_project',
+      entry_point = 'lua/lua_project.lua',
+    },
+    my_cpp_project = {
+      preset = lp.presets.cpp,
+      path = '~/path/to/my_cpp_project',
+      entry_point = 'src/main.cpp',
+      variables = {
+        app_executable = 'my_executable',
+        bench_executable = 'benchmarks',
+        test_executable = 'tests',
+      },
+      dap = { -- Debug adapter protocol config
+        config = require('dap').configurations.cpp,
+        program = 'build/${config}/${app_executable}',
+        args = {},
+      },
+      callback = function()
+        print 'This function is executed when the my_cpp_project project gets loaded'
+      end,
+    },
+  },
 }
 
 ```
@@ -358,8 +340,7 @@ accross computers:
             verbose = 0,
 
             reload_callback = function()
-                local plugin = require("lazy.core.config").plugins["light-projects.nvim"]
-                require("lazy.core.loader").reload(plugin)
+                vim.cmd(':Lazy reload light-projects.nvim')
             end,
 
             default_cmdtype = lp.cmdtypes.toggleterm,
