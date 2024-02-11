@@ -300,8 +300,8 @@ M.toggle_project = function()
   end
 
   if p.dap ~= nil then
-      p.dap.config.program = p.dap.program
-      p.dap.config.args = p.dap.args
+    p.dap.config[1].program = p.dap.program
+    p.dap.config[1].args = p.dap.args
   end
 
   M.current_project = p
