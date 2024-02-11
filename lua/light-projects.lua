@@ -299,11 +299,10 @@ M.toggle_project = function()
     })
   end
 
-  -- if p.dap ~= nil then
-  --     Log.trace(vim.inspect(p.dap.config))
-  --     p.dap.config.program = p.dap.program
-  --     p.dap.config.args = p.dap.args
-  -- end
+  if p.dap ~= nil then
+      p.dap.config.program = p.dap.program
+      p.dap.config.args = p.dap.args
+  end
 
   M.current_project = p
 end
