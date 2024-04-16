@@ -5,21 +5,6 @@ Utils.setup = function(root_mod)
     Utils.root = root_mod
 end
 
--- Helper function to get a valid path
-Utils.get_path = function(file_path)
-    file_path = vim.fn.expand(file_path)
-
-    if (Utils.root.on_windows) then
-        file_path = file_path:gsub('\\', '/')
-    end
-
-    if file_path:sub(-1) ~= '/' then
-        file_path = file_path .. '/'
-    end
-
-    return file_path
-end
-
 -- Helper ternary if function
 Utils.tif = function(cond, a, b)
     if cond then
@@ -75,6 +60,11 @@ Utils.clean_path = function(pathname)
   end
   return pathname
 end
+
+Utils.to_unix_path = function(pathname)
+  return pathname:gsub(Path.path.sep, '/')
+end
+
 
 Utils.Path = function(pathname)
     return Path:new(Utils.clean_path(vim.fn.expand(pathname)))

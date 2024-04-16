@@ -86,7 +86,7 @@ end
 
 M.parse_toggleterm_command = function(cmd, proj_path, variables)
   if M.cd_before_cmd then
-    cmd = 'cd ' .. Utils.Path(proj_path) .. ' && ' .. cmd
+    cmd = 'cd ' .. Utils.to_unix_path(proj_path) .. ' && ' .. cmd
   end
   cmd = Utils.replace_vars(cmd, variables)
   local toggleterm = require 'toggleterm'
@@ -320,7 +320,7 @@ M.setup = function(setup_args)
   end
 
   if M.server == nil then
-    M.server = vim.fn.serverlist()[1]
+    M.server = Utils.to_unix_path(vim.fn.serverlist()[1])
   end
 
   if setup_args.use_notify then
