@@ -131,7 +131,10 @@ the `type` argument.
 local presets = {}
 lp.presets.lua = {
     cmds = {
-        source = { cmd = 'source %', type = lp.cmdtypes.raw },
+        source = {
+            autosave = true, -- Autosave all open buffers (:wa<CR>)
+            cmd = 'source %', type = lp.cmdtypes.raw
+        },
     },
 }
 ```
@@ -165,6 +168,7 @@ lp.presets.cpp = {
     },
     cmds = {
         configure = {
+            autosave = true,
             cmd =
                 '$env:VCPKG_FEATURE_FLAGS="manifests";'
                 .. 'cmake . -B build'
@@ -173,7 +177,7 @@ lp.presets.cpp = {
                 .. ' -G "Ninja Multi-Config"'
                 .. ' -DCMAKE_EXPORT_COMPILE_COMMANDS=ON',
         },
-        build = { cmd = 'cmake --build build --config ${config}' },
+        build = { autosave = true, cmd = 'cmake --build build --config ${config}' },
         run = { cmd = 'build/${config}/${app_executable}' },
         test = { cmd = 'cd build; ctest' },
         bench = { cmd = 'build/benchmarks/${config}/${bench_executable}' },

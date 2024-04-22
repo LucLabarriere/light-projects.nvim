@@ -69,22 +69,24 @@ M.telescope_project_picker = function(opts)
     :find()
 end
 
-M.parse_raw_command = function(cmd, variables)
+M.parse_raw_command = function(cmd, variables, autosave)
   cmd = Utils.replace_vars(cmd, variables)
   return function()
+    if autosave then
+      vim.cmd 'wa'
+    end
     vim.cmd(cmd)
   end
 end
 
 M.execute_next_cmd = function()
   if M.command_buffer ~= nil and #M.command_buffer > 0 then
-    Log.trace('Executing next command: ' .. vim.inspect(M.command_buffer))
     M.command_buffer[1]()
     table.remove(M.command_buffer, 1)
   end
 end
 
-M.parse_toggleterm_command = function(cmd, proj_path, variables)
+M.parse_toggleterm_command = function(cmd, proj_path, variables, autosave)
   if M.cd_before_cmd then
     cmd = 'cd ' .. Utils.to_unix_path(proj_path) .. ' && ' .. cmd
   end
@@ -97,11 +99,14 @@ M.parse_toggleterm_command = function(cmd, proj_path, variables)
 
   require('toggleterm.terminal').get_or_create_term()
   return function()
+    if autosave then
+      vim.cmd 'wa'
+    end
     toggleterm.exec(cmd .. ending_callback, nil, nil, nil, nil, proj_path, false, true)
   end
 end
 
-M.parse_sequential_command = function(cmd, other_commands)
+M.parse_sequential_command = function(cmd, other_commands, autosave)
   local functions = {}
 
   for _, v in pairs(cmd) do
@@ -109,11 +114,14 @@ M.parse_sequential_command = function(cmd, other_commands)
   end
 
   return function()
+    if autosave then
+      vim.cmd 'wa'
+    end
+
     M.command_buffer = {}
     for _, v in pairs(functions) do
       table.insert(M.command_buffer, v)
     end
-    Log.trace('Executing sequential command: ' .. vim.inspect(M.command_buffer))
     M.execute_next_cmd()
   end
 end
@@ -186,18 +194,18 @@ M.store_projects = function(projects)
     -- Parsing commands and storing them as lua functions
     for cmd_name, cmd in pairs(p.raw_cmds) do
       if cmd.type == M.cmdtypes.raw then
-        p.cmds[cmd_name] = M.parse_raw_command(cmd.cmd, p.variables)
+        p.cmds[cmd_name] = M.parse_raw_command(cmd.cmd, p.variables, cmd.autosave)
       elseif cmd.type == M.cmdtypes.lua_function then
         p.cmds[cmd_name] = cmd.cmd
       elseif cmd.type == M.cmdtypes.toggleterm then
-        p.cmds[cmd_name] = M.parse_toggleterm_command(cmd.cmd, p.path, p.variables)
+        p.cmds[cmd_name] = M.parse_toggleterm_command(cmd.cmd, p.path, p.variables, cmd.autosave)
       end
     end
 
     -- Parsing sequential commands
     for cmd_name, cmd in pairs(p.raw_cmds) do
       if cmd.type == M.cmdtypes.sequential then
-        p.cmds[cmd_name] = M.parse_sequential_command(cmd.cmd, p.cmds)
+        p.cmds[cmd_name] = M.parse_sequential_command(cmd.cmd, p.cmds, cmd.autosave)
       end
     end
 
@@ -251,7 +259,6 @@ M.store_projects = function(projects)
       table.insert(M.project_names, proj_name)
     end
   end
-  Log.trace 'Done storing projects: '
 end
 
 M.toggle_project = function()
