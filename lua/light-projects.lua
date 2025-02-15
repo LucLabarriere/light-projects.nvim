@@ -273,10 +273,10 @@ M.toggle_project = function()
 
   local p = M.projects_defs[p_name]
 
-  if M.setup_args.verbose > 0 then
+  if M.verbose > 0 then
     Log.info('LightProjects: [' .. p_name .. ']')
 
-    if M.setup_args.verbose > 1 then
+    if M.verbose > 1 then
       Log.trace('LightProjects: current path: ' .. p_path)
     end
   end
@@ -336,9 +336,8 @@ M.setup = function(setup_args)
   end
 
   M.n_windows = vim.fn.has 'win32'
-  M.verbose = setup_args.verbose or 1
   M.default_cmdtype = setup_args.default_cmdtype or M.cmdtypes.raw
-  M.config_path = M.setup_args.config_path
+  M.config_path = string.sub(debug.getinfo(2, 'S').source, 2)
   M.cd_before_cmd = setup_args.cd_before_cmd or true
   M.reload_callback = setup_args.reload_callback or nil
 
@@ -347,7 +346,7 @@ M.setup = function(setup_args)
 end
 
 M.reload = function()
-  if M.verbose ~= nil and M.verbose > 1 then
+  if M.verbose > 1 then
     Log.info 'LightProjects: Reloading'
   end
 
@@ -361,11 +360,6 @@ M.reload = function()
 end
 
 M.open_config = function()
-  if M.config_path == nil then
-    Log.warn 'LightProjects: No config path set'
-    return
-  end
-
   vim.api.nvim_win_set_buf(0, vim.fn.bufadd(M.config_path))
 end
 

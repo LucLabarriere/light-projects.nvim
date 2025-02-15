@@ -63,13 +63,7 @@ window, and restart my LSP with `:LspRestart`.
 
 ## Installation
 
-For example using [vim-plug](https://github.com/junegunn/vim-plug):
-
-```lua
-Plug 'LucLabarriere/light-projects.nvim'
-```
-
-or [lazy.nvim](https://github.com/folke/lazy.nvim):
+With [lazy.nvim](https://github.com/folke/lazy.nvim):
 
 ```lua
 {
