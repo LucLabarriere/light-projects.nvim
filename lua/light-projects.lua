@@ -77,13 +77,7 @@ M.parse_raw_command = function(cmd, variables, autosave)
       vim.cmd 'wa'
     end
     vim.cmd(cmd)
-  end
-end
-
-M.execute_next_cmd = function()
-  if M.command_buffer ~= nil and #M.command_buffer > 0 then
-    M.command_buffer[1]()
-    table.remove(M.command_buffer, 1)
+    M.execute_next_cmd();
   end
 end
 
@@ -118,6 +112,7 @@ M.parse_term_command = function(cmd, proj_path, variables, autosave)
       vim.cmd 'wa'
     end
     vim.cmd(':term ' .. cmd)
+    M.execute_next_cmd();
   end
 end
 
@@ -138,6 +133,13 @@ M.parse_sequential_command = function(cmd, other_commands, autosave)
       table.insert(M.command_buffer, v)
     end
     M.execute_next_cmd()
+  end
+end
+
+M.execute_next_cmd = function()
+  if M.command_buffer ~= nil and #M.command_buffer > 0 then
+    local cmd = table.remove(M.command_buffer, 1)
+    cmd()
   end
 end
 
