@@ -11,6 +11,7 @@ M.cmdtypes = {
   toggleterm = 1,
   sequential = 2,
   lua_function = 3,
+  term = 4,
 }
 
 M.keymaps = {}
@@ -106,6 +107,20 @@ M.parse_toggleterm_command = function(cmd, proj_path, variables, autosave)
   end
 end
 
+M.parse_term_command = function(cmd, proj_path, variables, autosave)
+  if M.cd_before_cmd then
+    cmd = 'cd ' .. Utils.to_unix_path(proj_path) .. ' && ' .. cmd
+  end
+  cmd = Utils.replace_vars(cmd, variables)
+
+  return function()
+    if autosave then
+      vim.cmd 'wa'
+    end
+    vim.cmd(':term ' .. cmd)
+  end
+end
+
 M.parse_sequential_command = function(cmd, other_commands, autosave)
   local functions = {}
 
@@ -142,7 +157,9 @@ M.store_projects = function(projects)
       Log.error('Incorrect project config: path to ' .. proj_name .. ' is nil')
       return
     end
+
     p.path = Utils.Path(config.path).filename
+    p.default_cmdtype = config.default_cmdtype
 
     -- Applying preset
     if config.preset ~= nil then
@@ -155,11 +172,18 @@ M.store_projects = function(projects)
           end
         end
 
+        if p.default_cmdtype == nil then
+          if config.preset.default_cmdtype ~= nil then
+            p.default_cmdtype = config.preset.default_cmdtype
+          end
+        end
+
         if config.preset.cmds ~= nil then
           for cmd_name, cmd_value in pairs(config.preset.cmds) do
             if cmd_value.type == nil then
-              cmd_value.type = M.default_cmdtype
+              cmd_value.type = config.preset.default_cmdtype or M.default_cmdtype
             end
+            Log.info('[PRESET ' .. p.name .. ']: ' .. vim.inspect(cmd_value))
             p.raw_cmds[cmd_name] = cmd_value
           end
         end
@@ -174,6 +198,10 @@ M.store_projects = function(projects)
       end
     end
 
+    if p.default_cmdtype == nil then
+      p.default_cmdtype = M.default_cmdtype
+    end
+
     -- Storing additional variables
     if config.variables ~= nil then
       for var_name, var_value in pairs(config.variables) do
@@ -185,8 +213,9 @@ M.store_projects = function(projects)
     if config.cmds ~= nil then
       for cmd_name, cmd_value in pairs(config.cmds) do
         if cmd_value.type == nil then
-          cmd_value.type = M.default_cmdtype
+          cmd_value.type = p.default_cmdtype
         end
+        Log.info('[' .. p.name .. ']: ' .. vim.inspect(cmd_value))
         p.raw_cmds[cmd_name] = cmd_value
       end
     end
@@ -199,6 +228,8 @@ M.store_projects = function(projects)
         p.cmds[cmd_name] = cmd.cmd
       elseif cmd.type == M.cmdtypes.toggleterm then
         p.cmds[cmd_name] = M.parse_toggleterm_command(cmd.cmd, p.path, p.variables, cmd.autosave)
+      elseif cmd.type == M.cmdtypes.term then
+        p.cmds[cmd_name] = M.parse_term_command(cmd.cmd, p.path, p.variables, cmd.autosave)
       end
     end
 
