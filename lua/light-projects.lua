@@ -339,7 +339,9 @@ M.setup = function(setup_args)
   M.default_cmdtype = setup_args.default_cmdtype or M.cmdtypes.raw
   M.config_path = string.sub(debug.getinfo(2, 'S').source, 2)
   M.cd_before_cmd = setup_args.cd_before_cmd or true
-  M.reload_callback = setup_args.reload_callback or nil
+  M.reload_callback = setup_args.reload_callback or function()
+    vim.cmd ':Lazy reload light-projects.nvim'
+  end
 
   M.setup_commands()
   M.store_projects(setup_args.projects or {})
