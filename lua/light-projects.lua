@@ -36,6 +36,11 @@ M.setup_commands = function()
     ":lua require('light-projects').telescope_project_picker()",
     {}
   )
+  vim.api.nvim_create_user_command(
+    'LightProjectsNextCmd',
+    ":sleep 10m | lua require(\'light-projects\').execute_next_cmd()<CR>",
+    {}
+  )
 end
 
 local pickers = require 'telescope.pickers'
@@ -77,7 +82,7 @@ M.parse_raw_command = function(cmd, variables, autosave)
       vim.cmd 'wa'
     end
     vim.cmd(cmd)
-    M.execute_next_cmd();
+    M.execute_next_cmd()
   end
 end
 
@@ -88,9 +93,9 @@ M.parse_toggleterm_command = function(cmd, proj_path, variables, autosave)
   cmd = Utils.replace_vars(cmd, variables)
   local toggleterm = require 'toggleterm'
 
-  local ending_callback = ' &&  nvim --server '
+  local ending_callback = ' \\\n&& nvim --server '
     .. M.server
-    .. ' --remote-send "<ESC>:sleep 10m | lua require(\'light-projects\').execute_next_cmd()<CR>"'
+    .. ' --remote-send "<ESC>:LightProjectsNextCmd<CR>"'
 
   require('toggleterm.terminal').get_or_create_term()
   return function()
@@ -112,7 +117,7 @@ M.parse_term_command = function(cmd, proj_path, variables, autosave)
       vim.cmd 'wa'
     end
     vim.cmd(':term ' .. cmd)
-    M.execute_next_cmd();
+    M.execute_next_cmd()
   end
 end
 
