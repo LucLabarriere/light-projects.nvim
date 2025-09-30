@@ -38,7 +38,7 @@ M.setup_commands = function()
   )
   vim.api.nvim_create_user_command(
     'LightProjectsNextCmd',
-    ":sleep 10m | lua require(\'light-projects\').execute_next_cmd()<CR>",
+    ":sleep 10m | lua require('light-projects').execute_next_cmd()<CR>",
     {}
   )
 end
@@ -64,7 +64,7 @@ M.telescope_project_picker = function(opts)
           local selection = action_state.get_selected_entry()
           local p = M.projects_defs[selection[1]]
 
-          vim.cmd('cd ' .. p.path)
+          vim.cmd('cd ' .. p.workdir)
           if p.entry_point ~= nil then
             vim.cmd('e ' .. p.entry_point)
           end
@@ -75,8 +75,8 @@ M.telescope_project_picker = function(opts)
     :find()
 end
 
-M.parse_raw_command = function(cmd, variables, autosave)
-  cmd = Utils.replace_vars(cmd, variables)
+M.parse_raw_command = function(p, cmd, autosave)
+  cmd = Utils.replace_vars(cmd, p.variables)
   return function()
     if autosave then
       vim.cmd 'wa'
@@ -86,31 +86,29 @@ M.parse_raw_command = function(cmd, variables, autosave)
   end
 end
 
-M.parse_toggleterm_command = function(cmd, proj_path, variables, autosave)
+M.parse_toggleterm_command = function(p, cmd, autosave)
   if M.cd_before_cmd then
-    cmd = 'cd ' .. Utils.to_unix_path(proj_path) .. ' && ' .. cmd
+    cmd = 'cd ' .. Utils.to_unix_path(p.workdir) .. ' && ' .. cmd
   end
-  cmd = Utils.replace_vars(cmd, variables)
+  cmd = Utils.replace_vars(cmd, p.variables)
   local toggleterm = require 'toggleterm'
 
-  local ending_callback = ' \\\n&& nvim --server '
-    .. M.server
-    .. ' --remote-send "<ESC>:LightProjectsNextCmd<CR>"'
+  local ending_callback = ' \\\n&& nvim --server ' .. M.server .. ' --remote-send "<ESC>:LightProjectsNextCmd<CR>"'
 
   require('toggleterm.terminal').get_or_create_term()
   return function()
     if autosave then
       vim.cmd 'wa'
     end
-    toggleterm.exec(cmd .. ending_callback, nil, nil, nil, nil, proj_path, false, true)
+    toggleterm.exec(cmd .. ending_callback, nil, nil, nil, nil, p.workdir, false, true)
   end
 end
 
-M.parse_term_command = function(cmd, proj_path, variables, autosave)
+M.parse_term_command = function(p, cmd, autosave)
   if M.cd_before_cmd then
-    cmd = 'cd ' .. Utils.to_unix_path(proj_path) .. ' && ' .. cmd
+    cmd = 'cd ' .. Utils.to_unix_path(p.workdir) .. ' && ' .. cmd
   end
-  cmd = Utils.replace_vars(cmd, variables)
+  cmd = Utils.replace_vars(cmd, p.variables)
 
   return function()
     if autosave then
@@ -121,11 +119,11 @@ M.parse_term_command = function(cmd, proj_path, variables, autosave)
   end
 end
 
-M.parse_sequential_command = function(cmd, other_commands, autosave)
+M.parse_sequential_command = function(p, cmd, autosave)
   local functions = {}
 
   for _, v in pairs(cmd) do
-    table.insert(functions, other_commands[v])
+    table.insert(functions, p.cmds[v])
   end
 
   return function()
@@ -166,7 +164,13 @@ M.store_projects = function(projects)
     end
 
     p.path = Utils.Path(config.path).filename
+    p.workdir = p.path
     p.default_cmdtype = config.default_cmdtype
+
+    -- Storing project default cmdtype
+    if p.default_cmdtype == nil then
+      p.default_cmdtype = M.default_cmdtype
+    end
 
     -- Applying preset
     if config.preset ~= nil then
@@ -205,8 +209,14 @@ M.store_projects = function(projects)
       end
     end
 
-    if p.default_cmdtype == nil then
-      p.default_cmdtype = M.default_cmdtype
+    -- Storing on project toggle callback
+    if config.callback ~= nil then
+      p.callback = config.callback
+    end
+
+    -- Storing project entry point
+    if config.entry_point ~= nil then
+      p.entry_point = config.entry_point
     end
 
     -- Storing additional variables
@@ -227,47 +237,7 @@ M.store_projects = function(projects)
       end
     end
 
-    -- Parsing commands and storing them as lua functions
-    for cmd_name, cmd in pairs(p.raw_cmds) do
-      if cmd.type == M.cmdtypes.raw then
-        p.cmds[cmd_name] = M.parse_raw_command(cmd.cmd, p.variables, cmd.autosave)
-      elseif cmd.type == M.cmdtypes.lua_function then
-        p.cmds[cmd_name] = cmd.cmd
-      elseif cmd.type == M.cmdtypes.toggleterm then
-        p.cmds[cmd_name] = M.parse_toggleterm_command(cmd.cmd, p.path, p.variables, cmd.autosave)
-      elseif cmd.type == M.cmdtypes.term then
-        p.cmds[cmd_name] = M.parse_term_command(cmd.cmd, p.path, p.variables, cmd.autosave)
-      end
-    end
-
-    -- Parsing sequential commands
-    for cmd_name, cmd in pairs(p.raw_cmds) do
-      if cmd.type == M.cmdtypes.sequential then
-        p.cmds[cmd_name] = M.parse_sequential_command(cmd.cmd, p.cmds, cmd.autosave)
-      end
-    end
-
-    -- Storing on project toggle callback
-    if config.callback ~= nil then
-      p.callback = config.callback
-    end
-
-    -- Storing project entry point
-    if config.entry_point ~= nil then
-      p.entry_point = config.entry_point
-    end
-
-    -- Storing project dap config
-    if config.dap ~= nil then
-      p.dap = config.dap
-
-      p.dap.program = Utils.replace_vars(p.dap.program, p.variables)
-      for idx, arg in ipairs(p.dap.args) do
-        p.dap.args[idx] = Utils.replace_vars(arg, p.variables)
-      end
-    end
-
-    -- Wethever the folder is a bare git repo or not
+    -- If the folder is a bare git repo
     p.bare_git = config.bare_git
 
     if p.bare_git then
@@ -285,6 +255,7 @@ M.store_projects = function(projects)
           local branched_path = Utils.Path(string.gsub(line, '.git$', '')).filename
           local branched_proj_name = proj_name .. ' (' .. branches[i] .. ')'
           M.project_paths_name_mapping[branched_path] = branched_proj_name
+          p.workdir = branched_path
           M.projects_defs[branched_proj_name] = vim.deepcopy(p)
           M.projects_defs[branched_proj_name].path = branched_path
           table.insert(M.project_names, branched_proj_name)
@@ -293,8 +264,43 @@ M.store_projects = function(projects)
     else
       -- Storing path - proj_name mapping to be able to toggle projects
       M.project_paths_name_mapping[Utils.Path(p.path).filename] = proj_name
+      p.workdir = p.path
       M.projects_defs[proj_name] = p
       table.insert(M.project_names, proj_name)
+    end
+  end
+
+  for proj_name, config in pairs(M.projects_defs) do
+    -- Parsing commands and storing them as lua functions
+    local p = M.projects_defs[proj_name]
+
+    for cmd_name, cmd in pairs(p.raw_cmds) do
+      if cmd.type == M.cmdtypes.raw then
+        p.cmds[cmd_name] = M.parse_raw_command(p, cmd.cmd, cmd.autosave)
+      elseif cmd.type == M.cmdtypes.lua_function then
+        p.cmds[cmd_name] = cmd.cmd
+      elseif cmd.type == M.cmdtypes.toggleterm then
+        p.cmds[cmd_name] = M.parse_toggleterm_command(p, cmd.cmd, cmd.autosave)
+      elseif cmd.type == M.cmdtypes.term then
+        p.cmds[cmd_name] = M.parse_term_command(p, cmd.cmd, cmd.autosave)
+      end
+    end
+
+    -- Parsing sequential commands
+    for cmd_name, cmd in pairs(p.raw_cmds) do
+      if cmd.type == M.cmdtypes.sequential then
+        p.cmds[cmd_name] = M.parse_sequential_command(p, cmd.cmd, cmd.autosave)
+      end
+    end
+
+    -- Storing project dap config
+    if config.dap ~= nil then
+      p.dap = config.dap
+
+      p.dap.program = Utils.replace_vars(p.dap.program, p.variables)
+      for idx, arg in ipairs(p.dap.args) do
+        p.dap.args[idx] = Utils.replace_vars(arg, p.variables)
+      end
     end
   end
 end
@@ -302,9 +308,11 @@ end
 M.toggle_project = function()
   local p_path = Utils.Path(vim.fn.getcwd()).filename
   local p_name = M.project_paths_name_mapping[p_path]
+
   if p_name == nil then
     return
   end
+
   if M.current_project and p_name == M.current_project.name then
     return
   end
