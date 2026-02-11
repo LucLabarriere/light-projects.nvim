@@ -241,24 +241,57 @@ M.store_projects = function(projects)
     p.bare_git = config.bare_git
 
     if p.bare_git then
-      local base_path = Utils.Path(p.path)
-      local worktrees_path = base_path:joinpath 'worktrees'
-      local branches = Plenary_scan.scan_dir(worktrees_path.filename, { hidden = true, depth = 1, add_dirs = true })
+      -- Execute "git worktree list --porcelain" to get the list of worktrees
+      local worktree_res = vim
+        .system({ 'git', 'worktree', 'list', '--porcelain' }, { text = true, cwd = p.path })
+        :wait()
 
-      for i, _ in ipairs(branches) do
-        local path = Utils.Path(branches[i])
-        local path_infos = path:_split()
-        local line = Utils.read_line(path:joinpath('gitdir').filename)
-        branches[i] = path_infos[#path_infos]
+      if worktree_res.code ~= 0 then
+        Log.error 'LightProjects: Error while getting worktrees list'
+      else
+        -- Parse the porcelain output
+        local worktrees = {}
+        local current_worktree = {}
 
-        if line ~= nil then
-          local branched_path = Utils.Path(string.gsub(line, '.git$', '')).filename
-          local branched_proj_name = proj_name .. ' (' .. branches[i] .. ')'
-          M.project_paths_name_mapping[branched_path] = branched_proj_name
-          p.workdir = branched_path
-          M.projects_defs[branched_proj_name] = vim.deepcopy(p)
-          M.projects_defs[branched_proj_name].path = branched_path
-          table.insert(M.project_names, branched_proj_name)
+        for line in worktree_res.stdout:gmatch '[^\r\n]+' do
+          if line:match '^worktree ' then
+            -- New worktree entry
+            if current_worktree.path then
+              table.insert(worktrees, current_worktree)
+            end
+            current_worktree = { path = line:match '^worktree (.+)' }
+          elseif line:match '^branch ' then
+            current_worktree.branch = line:match '^branch refs/heads/(.+)'
+          elseif line:match '^bare' then
+            current_worktree.is_bare = true
+          elseif line == '' then
+            -- Empty line separates worktree entries
+            if current_worktree.path then
+              table.insert(worktrees, current_worktree)
+              current_worktree = {}
+            end
+          end
+        end
+
+        -- Don't forget the last worktree
+        if current_worktree.path then
+          table.insert(worktrees, current_worktree)
+        end
+
+        -- Process each worktree
+        for _, wt in ipairs(worktrees) do
+          -- Skip bare repositories
+          if not wt.is_bare then
+            local branch_name = wt.branch or 'detached'
+            local worktree_path = wt.path
+            local worktree_proj_name = proj_name .. ' (' .. branch_name .. ')'
+
+            M.project_paths_name_mapping[worktree_path] = worktree_proj_name
+            p.workdir = worktree_path
+            M.projects_defs[worktree_proj_name] = vim.deepcopy(p)
+            M.projects_defs[worktree_proj_name].path = worktree_path
+            table.insert(M.project_names, worktree_proj_name)
+          end
         end
       end
     else
