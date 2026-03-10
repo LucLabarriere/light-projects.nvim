@@ -237,6 +237,20 @@ M.store_projects = function(projects)
       end
     end
 
+    -- Storing project dap config
+    if config.dap ~= nil then
+      local program = config.dap.program
+      local args = config.dap.args
+
+      p.dap = config.dap.config[1]
+      p.dap.program = Utils.replace_vars(program, p.variables)
+
+      p.dap.args = {}
+      for idx, arg in ipairs(args) do
+        p.dap.args[idx] = Utils.replace_vars(arg, p.variables)
+      end
+    end
+
     -- If the folder is a bare git repo
     p.bare_git = config.bare_git
 
@@ -325,16 +339,6 @@ M.store_projects = function(projects)
         p.cmds[cmd_name] = M.parse_sequential_command(p, cmd.cmd, cmd.autosave)
       end
     end
-
-    -- Storing project dap config
-    if config.dap ~= nil then
-      p.dap = config.dap
-
-      p.dap.program = Utils.replace_vars(p.dap.program, p.variables)
-      for idx, arg in ipairs(p.dap.args) do
-        p.dap.args[idx] = Utils.replace_vars(arg, p.variables)
-      end
-    end
   end
 end
 
@@ -383,11 +387,6 @@ M.toggle_project = function()
       timeout = 10,
       stages = 'fade',
     })
-  end
-
-  if p.dap ~= nil then
-    p.dap.config[1].program = p.dap.program
-    p.dap.config[1].args = p.dap.args
   end
 
   M.current_project = p
